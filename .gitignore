@@ -1,0 +1,5 @@
+*.swo
+*.swp
+*.so
+*.o
+.Rhistory

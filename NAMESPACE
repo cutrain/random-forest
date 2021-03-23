@@ -1,0 +1,7 @@
+useDynLib(qr_simplex, .registration=TRUE)
+exportPattern("^[[:alpha:]]+")
+importFrom(Rcpp, evalCpp)
+export(NewRanks)
+export(transfer_v)
+export(qr_tau_para_diff)
+export(qr_tau_para_diff_weight)

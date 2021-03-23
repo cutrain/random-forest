@@ -1,0 +1,19 @@
+Package: qr_simplex
+Version: 0.01
+Date: 2021-03-23
+Title: THIS IS A TITLE
+Authors@R: c(
+		person("Huichen", "Zhu", role=c("cre", "aut"), email="TODO"),
+		person("Yu", "Duan", role="aut", email="duanyuge@qq.com"))
+Maintainer: Huichen Zhu <TODO@gmail.com>
+Depends: R (>= 3.3.0)
+LinkingTo: Rcpp, RcppArmadillo
+Imports: 
+	Rcpp (>= 0.11.2),
+	RcppArmadillo (>= 0.10.3)
+License: GPL-3
+Description: TODO
+LazyData: TODO
+Encoding: UTF-8
+URL: TODO
+BugReports: TODO
