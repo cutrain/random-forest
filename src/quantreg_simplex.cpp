@@ -7,8 +7,8 @@
 #include <utility>
 #include <vector>
 #include <iostream>
+#include <set>
 #ifdef DEBUG
-#include <RInside.h>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -54,6 +54,23 @@ arma::vec in_cpp(const arma::vec &a, const arma::uvec &b){
   return move(result);
 }
 
+arma::vec in_cpp2(const arma::vec &a, const std::set<uint> &b) {
+  int n = a.n_elem;
+  arma::vec result(n);
+
+  for (int i = 0;i < n; ++i) {
+    result(i) = 0;
+  }
+
+  for (int i = 0;i < n; ++i) {
+    if (a(i) == 0)
+      continue;
+    if (b.find(a(i)) != b.end())
+      result(i) = 1;
+  }
+  return move(result);
+}
+
 void save_mat(arma::mat X, string filename) {
   ofstream f(filename);
   if (f.is_open()) {
@@ -86,7 +103,6 @@ void save_spmat(arma::sp_mat X, string filename) {
     f.close();
   }
 }
-
 
 //main function to implement quantile regression with simplex
 //method;
@@ -218,17 +234,11 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   arma::vec temp(n,arma::fill::zeros);
 
   while(tau_t<max_num_tau){
-     //cout << "tau_t is "<< tau_t<< endl;
-
     if(tau_t>0){
       r1j_temp = c0.cols(IB)*gammax(arma::span(0,n-1),arma::span::all);
-      //cout << "r1j_temp dimension is " << r1j_temp.n_elem<<endl;
       r1j = join_rows(r1j_temp-1,1-r1j_temp);
-      //cout << "r1j dimension is" << r1j.n_elem<<endl;
       r0j = join_rows(gammax.row(n),weights.elem(r1-(1+nvar)).as_row()-gammax.row(n));
-      //cout << "r0j dimension is" << r0j.n_elem<<endl;
       theta = r0j/r1j;
-      //cout<< "theta dimension is "<< theta.n_elem <<endl;
       bool choose = false;
       double theta_min = 0;
       for (int i = 0;i < (1+nvar)*2; i++)
@@ -238,10 +248,8 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
           theta_min = theta[i];
         }
       // double theta_min = arma::as_scalar(theta.cols(find(r1j>0)).min());
-      //cout << "theta_min is "<<theta_min<< endl;
 
       tau = tau + theta_min + tau_min;
-      //cout << "tau is "<< tau<< endl;
 
       if(tau>taurange[1]){
         if(last_flag)
@@ -391,8 +399,15 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
     est_beta = join_rows(est_beta,estimate);
     tau_list.push_back(tau-tau_min);
 
-    u = in_cpp(u_temp,IB);
-    v = in_cpp(v_temp,IB);
+
+    std::set<uint> IB_set;
+    for (int i = 0;i < IB.n_elem; ++i) {
+      IB_set.insert(IB(i));
+    }
+    u = in_cpp2(u_temp,IB_set);
+    v = in_cpp2(v_temp,IB_set);
+    // u = in_cpp(u_temp,IB);
+    // v = in_cpp(v_temp,IB);
 
     arma::mat xh = gammaxb.cols(find(u==0&&v==0));
     arma::mat xbarh = gammaxb.cols(find(u==1||v==1));
@@ -447,9 +462,6 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   est_beta.shed_col(0);
 #ifdef DEBUG
   ProfilerStop();
-  save_mat(est_beta, "est_beta.txt");
-  save_vector(tau_list, "tau_list.txt");
-  save_spmat(dual_sol, "dual_sol.txt");
   cout << "finish" << endl;
 #endif
 
