@@ -1,4 +1,6 @@
 
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+load("tempdata.RData")
 
 data_weight_MM = train
 set.seed(234)
