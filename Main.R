@@ -12,7 +12,11 @@ X = matrix(runif(N*d,0,1),N,d)  # design matrix
 Y = cbind(1,X)%*%c(1,2,3)+rnorm(N) # response variable
 weights = runif(N,0,1) #weights with the same length as Y
 
+
 dyn.load('lib/qr_simplex.so')
+CenQRForest_C <- function(matZ0, matX0, matY0, delta0, tau, weight_rf0, rfsrc_time_surv0, time_interest, quantile_level, numTree, minSplit1, maxNode, mtry) {
+    .Call("_qr_simplex_CenQRForest_C", matZ0, matX0, matY0, delta0, tau, weight_rf0, rfsrc_time_surv0, time_interest, quantile_level, numTree, minSplit1, maxNode, mtry)
+}
 qr_tau_para_diff_cpp <- function(x, y, weights, taurange, tau_min = 1e-10, tol = 1e-14, maxit = 100000L, max_num_tau = 1000L, use_residual = TRUE) {
     .Call("_qr_simplex_qr_tau_para_diff_cpp", x, y, weights, taurange, tau_min, tol, maxit, max_num_tau, use_residual)
 }
