@@ -3,18 +3,27 @@
 // we only include RcppArmadillo.h which pulls Rcpp.h in for us
 #include "RcppArmadillo.h"
 #include "math.h"
-#include "iostream"
 #include <memory>
 #include <utility>
+#include <vector>
+#include <iostream>
+#ifdef DEBUG
+#include <RInside.h>
+#include <cstdio>
+#include <fstream>
+#include <sstream>
+#include <gperftools/profiler.h>
+#endif
 typedef unsigned int uint;
 
 using namespace Rcpp;
-using namespace arma;
+//using namespace arma;
 using namespace std;
 
 // via the depends attribute we tell Rcpp to create hooks for
 // RcppArmadillo so that the build process will know what to do
 //
+// [[Rcpp::depends(Matrix)]]
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::plugins(cpp11)]]
 
@@ -44,6 +53,39 @@ arma::vec in_cpp(const arma::vec &a, const arma::uvec &b){
     }
   }
   return move(result);
+}
+
+void save_mat(arma::mat X, string filename) {
+  ofstream f(filename);
+  if (f.is_open()) {
+    for (int i = 0; i < X.n_rows; ++i) {
+      for (int j = 0;j < X.n_cols; ++j) {
+        f << X(i,j) << " ";
+      }
+      f << endl;
+    }
+    f.close();
+  }
+}
+
+void save_vector(vector<double> x, string filename) {
+  ofstream f(filename);
+  if (f.is_open()) {
+    for (int i = 0;i < x.size(); ++i) {
+      f << x[i] << endl;
+    }
+    f.close();
+  }
+}
+
+void save_spmat(arma::sp_mat X, string filename) {
+  ofstream f(filename);
+  if (f.is_open()) {
+    for (auto it = X.begin(); it != X.end(); ++it) {
+      f << (*it) << " " << it.row() << " " << it.col() << endl;
+    }
+    f.close();
+  }
 }
 
 
@@ -76,6 +118,9 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
                           const double tol = 1e-14,
                           const uint maxit = 100000, const uint max_num_tau = 1000,
                           const bool use_residual = true){
+#ifdef DEBUG
+  ProfilerStart("tau.prof");
+#endif
   //n: number of obs;
   uint n = x.n_rows;
 
@@ -85,25 +130,31 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   double tau = tau_min+taurange(0);
   //cout << tau << endl;
   //cc: last row in the linear programming tableau of QR;
-  arma::rowvec cc(nvar+1+2*n,fill::zeros);
+  arma::rowvec cc(nvar+1+2*n,arma::fill::zeros);
   for(uint j = nvar+1;j<nvar+n+1;j++){
-    cc[j] = tau*weights[j];cc[j+n] = (1-tau)*weights[j];
+    cc[j] = tau*weights[j];
+    cc[j+n] = (1-tau)*weights[j];
   }
 
-  arma::colvec col_one(n);col_one.fill(1.0);
+  arma::colvec col_one(n);
+  col_one.fill(1.0);
   arma::mat gammax_org = join_rows(col_one,x);
   arma::mat gammaxb = gammax_org.t();
   //b: last column in the linear programming tableau of QR;
-  arma::colvec col_zero(1);col_zero.fill(0.0);
+  arma::colvec col_zero(1);
+  col_zero.fill(0.0);
   arma::colvec b = join_cols(y,col_zero);
   //flip the sign if y<0;
-  gammax_org.rows(find(y<0)) = -gammax_org.rows(find(y<0));
-  b.rows(find(y<0)) = -b.rows(find(y<0));
+  {
+    auto nega_y = find(y<0);
+    gammax_org.rows(nega_y) = -gammax_org.rows(nega_y);
+    b.rows(nega_y) = -b.rows(nega_y);
+  }
 
   //IB: index of variables in the basic set;
-  arma::uvec IB(n,fill::zeros);
-  for(uint j = 0;j<n;j++){
-    if(y[j]>=0)
+  arma::uvec IB(n,arma::fill::zeros);
+  for (uint j = 0;j < n; ++j) {
+    if (y[j] >= 0)
       IB[j] = nvar+j+1;
     else
       IB[j] = nvar+n+j+1;
@@ -115,25 +166,25 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   //cout << gammax(gammax.n_rows-1,0) << endl;
 
   //once beta is pivoted to basic set, it cannot be pivoted out;
-  arma::uvec free_var_basic(n+1,fill::zeros);
+  arma::uvec free_var_basic(n+1,arma::fill::zeros);
   free_var_basic[n] = 1;
 
   //r1,r2: index of positive or negative beta in the basic set;
-  arma::uvec r1 = regspace<uvec>(0,nvar);
-  arma::uvec r2(nvar+1,fill::zeros);
-  arma::mat rr(2, 1+nvar,fill::zeros);
+  arma::uvec r1 = arma::regspace<arma::uvec>(0,nvar);
+  arma::uvec r2(nvar+1,arma::fill::zeros);
+  arma::mat rr(2, 1+nvar,arma::fill::zeros);
 
   //Initialize estimation output matrix;
   //est_beta: estimation matrix;
-  arma::mat est_beta(nvar+1,1,fill::zeros);
-  est_beta = regspace(1,nvar+1);
+  arma::mat est_beta(nvar+1,1,arma::fill::zeros);
+  est_beta = arma::regspace(1,nvar+1);
   //dual_sol: dual solution matrix a sparse matrix
   arma::sp_mat dual_sol(n,max_num_tau);
   //tau_list:: a list of tau, automatically generated in alg;
-  std::vector<double> tau_list;
+  vector<double> tau_list;
 
   //c0: a vector helps to generate the next tau level;
-  arma::rowvec c0(1+nvar+2*n,fill::zeros);
+  arma::rowvec c0(1+nvar+2*n,arma::fill::zeros);
   c0.subvec(nvar+1,nvar+n) = weights;
   c0.subvec(nvar+n+1,nvar+2*n) = -weights;
 
@@ -144,35 +195,34 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
 
   // variables used in the while loop;
   uint j = 0;
-  arma::vec yy(gammax.n_rows,fill::zeros);
-  arma::vec ee(gammax.n_rows,fill::zeros);
+  arma::vec yy(gammax.n_rows,arma::fill::zeros);
+  arma::vec ee(gammax.n_rows,arma::fill::zeros);
   uint t_rr = 0;
   uint tsep = 0;
-  arma::uvec nokeep(gammax.n_rows,fill::zeros);
+  arma::uvec nokeep(gammax.n_rows,arma::fill::zeros);
   double t = 0;
-  arma::vec k(gammax.n_rows,fill::zeros);
+  arma::vec k(gammax.n_rows,arma::fill::zeros);
   uint k_index = 0;
   arma::uvec tmp;
-  arma::vec estimate(nvar+1,fill::zeros);
+  arma::vec estimate(nvar+1,arma::fill::zeros);
   uint tau_t = 0;
-  arma::rowvec r1j_temp(1+nvar,fill::zeros);
-  arma::rowvec r1j(2*(1+nvar),fill::zeros);
-  arma::rowvec r0j(2*(1+nvar),fill::zeros);
-  arma::rowvec theta(2*(1+nvar),fill::zeros);
-  double theta_min = 0.0;
-  arma::vec u(n,fill::zeros);
-  arma::vec u_temp = regspace<arma::vec>(1+nvar,nvar+n);
-  arma::vec v(n,fill::zeros);
-  arma::vec v_temp = regspace<arma::vec>(1+nvar+n,nvar+2*n);
-  arma::rowvec dbarh(n,fill::zeros);
-  arma::vec temp1(n,fill::zeros);
-  arma::vec temp(n,fill::zeros);
+  arma::rowvec r1j_temp(1+nvar,arma::fill::zeros);
+  arma::rowvec r1j(2*(1+nvar),arma::fill::zeros);
+  arma::rowvec r0j(2*(1+nvar),arma::fill::zeros);
+  arma::rowvec theta(2*(1+nvar),arma::fill::zeros);
+  arma::vec u(n,arma::fill::zeros);
+  arma::vec u_temp = arma::regspace<arma::vec>(1+nvar,nvar+n);
+  arma::vec v(n,arma::fill::zeros);
+  arma::vec v_temp = arma::regspace<arma::vec>(1+nvar+n,nvar+2*n);
+  arma::rowvec dbarh(n,arma::fill::zeros);
+  arma::vec temp1(n,arma::fill::zeros);
+  arma::vec temp(n,arma::fill::zeros);
 
   while(tau_t<max_num_tau){
      //cout << "tau_t is "<< tau_t<< endl;
 
     if(tau_t>0){
-      r1j_temp = c0.cols(IB)*gammax(span(0,n-1),span::all);
+      r1j_temp = c0.cols(IB)*gammax(arma::span(0,n-1),arma::span::all);
       //cout << "r1j_temp dimension is " << r1j_temp.n_elem<<endl;
       r1j = join_rows(r1j_temp-1,1-r1j_temp);
       //cout << "r1j dimension is" << r1j.n_elem<<endl;
@@ -180,7 +230,15 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
       //cout << "r0j dimension is" << r0j.n_elem<<endl;
       theta = r0j/r1j;
       //cout<< "theta dimension is "<< theta.n_elem <<endl;
-      theta_min = as_scalar(theta.cols(find(r1j>0)).min());
+      bool choose = false;
+      double theta_min = 0;
+      for (int i = 0;i < (1+nvar)*2; i++)
+        if (r1j[i] > 0 && (!choose || theta_min > theta[i]))
+        {
+          choose = true;
+          theta_min = theta[i];
+        }
+      // double theta_min = arma::as_scalar(theta.cols(find(r1j>0)).min());
       //cout << "theta_min is "<<theta_min<< endl;
 
       tau = tau + theta_min + tau_min;
@@ -199,7 +257,7 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
       cc.cols(1+nvar,nvar+n) = rep_cpp(tau,n)%weights;
       cc.cols(1+nvar+n,nvar+2*n) = rep_cpp(1-tau,n)%weights;
       gammax.row(n) = rep_cpp(tau,nvar+1)-
-        cc.cols(IB)*gammax(span(0,n-1),span::all);
+        cc.cols(IB)*gammax(arma::span(0,n-1),arma::span::all);
     }
 
     j = 0;
@@ -219,7 +277,7 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
 
         t_rr = j;
         tsep = 0;
-        t = as_scalar(r1(t_rr));
+        t = arma::as_scalar(r1(t_rr));
       }else{
         //cout << rr.n_cols<< endl;
         //cout << gammax.n_cols <<endl;
@@ -271,6 +329,9 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
       }else{
         //cout << t_rr<< endl;
         yy = gammax.col(t_rr);
+        if (abs(yy(n)) < 1e-10) {
+          cout << "eps found!!!" << endl;
+        }
         if(yy(n)<0){
 
           k = b/yy;
@@ -306,7 +367,7 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
       }
 
       gammax = gammax-ee*gammax.row(k_index);
-      b = b-ee*as_scalar(b[k_index]);
+      b = b-ee*arma::as_scalar(b[k_index]);
       IB(k_index) = t;
       //cout << "t is " << t << endl;
 
@@ -341,7 +402,7 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
     dbarh = dbarh%weights;
     //cout<<"dbarh dimension is "<< dbarh.n_elem<<endl;
 
-    arma::vec dh(sum(u==1||v==1),fill::zeros);
+    arma::vec dh(sum(u==1||v==1),arma::fill::zeros);
     try{
       dh = solve(xh,-xbarh*dbarh.cols(find(u==1||v==1)).t());
     }
@@ -378,12 +439,20 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
     dual_sol.shed_cols(tau_t-1,max_num_tau-1);
   }
 
+
   //cout<<est_beta.n_cols<<endl;
   //cout<< "tau_t is "<<tau_t<<endl;
 
   //est_beta.shed_col(tau_t);
   //dual_sol.shed_cols(tau_t-1,max_num_tau-1);
   est_beta.shed_col(0);
+#ifdef DEBUG
+  ProfilerStop();
+  save_mat(est_beta, "est_beta.txt");
+  save_vector(tau_list, "tau_list.txt");
+  save_spmat(dual_sol, "dual_sol.txt");
+  cout << "finish" << endl;
+#endif
 
   return List::create(Named("estimate") = est_beta,
                       Named("tau") = tau_list,

@@ -1,5 +1,15 @@
+*
+!*.*
+!*/
+!makefile
+
 *.swo
 *.swp
 *.so
 *.o
 .Rhistory
+*.txt
+*.pdf
+*.prof
+
+core.*
