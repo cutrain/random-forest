@@ -54,21 +54,18 @@ arma::vec in_cpp(const arma::vec &a, const arma::uvec &b){
   return move(result);
 }
 
-arma::vec in_cpp2(const arma::vec &a, const std::set<uint> &b) {
-  int n = a.n_elem;
-  arma::vec result(n);
+void in(uint us, uint ue, uint vs, uint ve, const arma::uvec &IB, arma::vec &u, arma::vec &v) {
+  int n = v.n_elem;
+  u.fill(arma::fill::zeros);
+  v.fill(arma::fill::zeros);
 
-  for (int i = 0;i < n; ++i) {
-    result(i) = 0;
+  for (int i = 0;i < n; i++) {
+    int x = IB(i);
+    if (x >= us && x <= ue)
+      u(x-us) = 1;
+    else if (x >= vs && x <= ve)
+      v(x-vs) = 1;
   }
-
-  for (int i = 0;i < n; ++i) {
-    if (a(i) == 0)
-      continue;
-    if (b.find(a(i)) != b.end())
-      result(i) = 1;
-  }
-  return move(result);
 }
 
 void save_mat(arma::mat X, string filename) {
@@ -399,15 +396,19 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
     est_beta = join_rows(est_beta,estimate);
     tau_list.push_back(tau-tau_min);
 
+    in(1+nvar, n+nvar, 1+nvar+n, nvar+2*n, IB, u, v);
 
-    std::set<uint> IB_set;
-    for (int i = 0;i < IB.n_elem; ++i) {
-      IB_set.insert(IB(i));
-    }
-    u = in_cpp2(u_temp,IB_set);
-    v = in_cpp2(v_temp,IB_set);
-    // u = in_cpp(u_temp,IB);
-    // v = in_cpp(v_temp,IB);
+    /*
+    arma::vec u2(IB.n_elem);
+    arma::vec v2(IB.n_elem);
+    u2 = in_cpp(u_temp,IB);
+    v2 = in_cpp(v_temp,IB);
+
+    if (arma::any(u != u2))
+      cout << "in cpp failed" << endl;
+    if (arma::any(v != v2))
+      cout << "in cpp failed" << endl;
+    */
 
     arma::mat xh = gammaxb.cols(find(u==0&&v==0));
     arma::mat xbarh = gammaxb.cols(find(u==1||v==1));
