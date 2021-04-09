@@ -3,49 +3,47 @@
 
 #include <vector>
 #include <random>
+#include <memory>
 //#include <iostream>
 #include <armadillo>
 
 // #include "Data.h"
 
 typedef unsigned int uint;
+using std::shared_ptr;
+using std::make_shared;
+using arma::vec;
+using arma::uvec;
 
 class Tree {
 public:
 
+  shared_ptr<uvec> left_childs;
+  shared_ptr<uvec> right_childs;
+  shared_ptr<vec> split_vars;
+  shared_ptr<vec> split_values;
+  shared_ptr<uvec> isLeaf;
 
-  Tree(arma::uvec&& lc,
-       arma::uvec&& rc,
-       arma::vec&& svars,
-       arma::vec&& svals,
-       arma::uvec&& isl){
-    left_childs = lc;
-    right_childs = rc;
-    split_vars = svars;
-    split_values = svals;
-    isLeaf = isl;
-
+  Tree(uvec lc,
+       uvec rc,
+       vec svars,
+       vec svals,
+       uvec isl){
+    left_childs = make_shared<uvec>(lc);
+    right_childs = make_shared<uvec>(rc);
+    split_vars = make_shared<vec>(svars);
+    split_values = make_shared<vec>(svals);
+    isLeaf = make_shared<uvec>(isl);
   };
 
   // Tree();
 
   // Based on the data preparation step, the covariate values are integers
-  //arma::uvec get_split_vars() const;
-  const arma::vec& get_split_values() const;
-  const arma::uvec& get_left_childs() const;
-  const arma::uvec& get_right_childs() const;
-  const arma::uvec& get_isLeaf() const;
-  const arma::vec& get_split_vars() const;
-
-
-
-
-private:
-  arma::uvec left_childs;
-  arma::uvec right_childs;
-  arma::vec split_vars;
-  arma::vec split_values;
-  arma::uvec isLeaf;
+  shared_ptr<uvec> get_left_childs() const;
+  shared_ptr<uvec> get_right_childs() const;
+  shared_ptr<vec> get_split_vars() const;
+  shared_ptr<vec> get_split_values() const;
+  shared_ptr<uvec> get_isLeaf() const;
 
 };
 

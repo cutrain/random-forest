@@ -36,7 +36,7 @@ arma::rowvec rep_cpp(double num,uint times){
   for(uint i = 0;i<times;i++){
     result(i) = num;
   }
-  return move(result);
+  return result;
 }
 
 
@@ -51,7 +51,7 @@ arma::vec in_cpp(const arma::vec &a, const arma::uvec &b){
       result(i) = 0;
     }
   }
-  return move(result);
+  return result;
 }
 
 void in(uint us, uint ue, uint vs, uint ve, const arma::uvec &IB, arma::vec &u, arma::vec &v) {
