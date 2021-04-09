@@ -157,11 +157,18 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   col_zero.fill(0.0);
   arma::colvec b = join_cols(y,col_zero);
   //flip the sign if y<0;
-  {
-    auto nega_y = find(y<0);
-    gammax_org.rows(nega_y) = -gammax_org.rows(nega_y);
-    b.rows(nega_y) = -b.rows(nega_y);
-  }
+
+  for (int i = 0;i < y.n_elem; i++)
+    if (y(i) < 0)
+    {
+      gammax_org.row(i) = -gammax_org.row(i);
+      b(i) = -b(i);
+    }
+  /*
+  gammax_org.rows(find(y<0)) = -gammax_org.rows(find(y<0));
+  b.rows(find(y<0)) = -b.rows(find(y<0));
+  */
+
 
   //IB: index of variables in the basic set;
   arma::uvec IB(n,arma::fill::zeros);
