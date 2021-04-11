@@ -6,6 +6,7 @@
 #include "iostream"
 #include "Tree.h"
 #include <memory>
+#include "quantreg.h"
 // typedef unsigned int uint;
 
 // using namespace Rcpp;
@@ -50,6 +51,15 @@ public:
               const arma::vec& quantile_level,
               const arma::umat& ids);
 
+  int trainRF(std::vector<std::shared_ptr<Tree> >& trees,
+              const arma::mat& matZ,
+              const arma::mat& matX,
+              const arma::mat& matY,
+              const arma::vec& taurange,
+              const arma::vec& quantile_level,
+              uint max_num_tau,
+              const arma::umat& ids);
+
   // Grow A Tree in the forest
   std::shared_ptr<Tree> train_tree(const arma::mat& matZ,
                                    const arma::mat& matX,
@@ -60,6 +70,13 @@ public:
                                    const arma::mat& rfsrc_time_surv,
                                    const arma::vec& time_interest,
                                    const arma::vec& quantile_level) const;
+
+  std::shared_ptr<Tree> train_tree(const arma::mat& matZ,
+                                   const arma::mat& matX,
+                                   const arma::mat& matY,
+                                   const arma::vec& taurange,
+                                   const arma::vec& quantile_level,
+                                   uint max_num_tau) const;
 
   uint split_generalized_MM(const arma::mat& matZ,
                             const arma::mat& matX,
@@ -116,6 +133,30 @@ public:
 
   arma::vec rep_cpp(double num,uint times) const;
 
+  uint split_rankscore(const arma::mat& matZ,
+                       const arma::mat& matX,
+                       const arma::mat& matY,
+                       const arma::vec& taurange,
+                       arma::field<arma::uvec>& nodeSample,
+                       arma::uvec& isLeaf,
+                       arma::vec& split_vars,
+                       arma::vec& split_values,
+                       arma::uvec& left_childs,
+                       arma::uvec& right_childs,
+                       uint& countsp,
+                       uint& ndcount,
+                       const arma::vec& quantile_level,
+                       uint max_num_tau) const;
+
+  arma::vec find_split_rankscore(arma::uword nd,
+                                 const arma::mat& matZ,
+                                 const arma::mat& matX,
+                                 const arma::mat& matY,
+                                 const arma::vec& taurange,
+                                 const arma::field<arma::uvec>& nodeSample,
+                                 const arma::vec& quantile_level,
+                                 uint max_num_tau) const;
+
 
 
 
@@ -125,7 +166,6 @@ private:
 
   uint NUM_TREE;
   uint MAX_NODE;
-  uint MIN_NODE1;
   uint MIN_SPLIT1;
   uint MTRY;
 

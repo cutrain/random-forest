@@ -29,6 +29,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// QPRForest_C
+SEXP QPRForest_C(const arma::mat& matZ0, const arma::mat& matX0, const arma::vec& matY0, const arma::vec& taurange, const arma::vec& quantile_level, uint max_num_tau, int numTree, int minSplit1, int maxNode, int mtry);
+RcppExport SEXP _rf_QPRForest_C(SEXP matZ0SEXP, SEXP matX0SEXP, SEXP matY0SEXP, SEXP taurangeSEXP, SEXP quantile_levelSEXP, SEXP max_num_tauSEXP, SEXP numTreeSEXP, SEXP minSplit1SEXP, SEXP maxNodeSEXP, SEXP mtrySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type matZ0(matZ0SEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type matX0(matX0SEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type matY0(matY0SEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type taurange(taurangeSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type quantile_level(quantile_levelSEXP);
+    Rcpp::traits::input_parameter< uint >::type max_num_tau(max_num_tauSEXP);
+    Rcpp::traits::input_parameter< int >::type numTree(numTreeSEXP);
+    Rcpp::traits::input_parameter< int >::type minSplit1(minSplit1SEXP);
+    Rcpp::traits::input_parameter< int >::type maxNode(maxNodeSEXP);
+    Rcpp::traits::input_parameter< int >::type mtry(mtrySEXP);
+    rcpp_result_gen = Rcpp::wrap(QPRForest_C(matZ0, matX0, matY0, taurange, quantile_level, max_num_tau, numTree, minSplit1, maxNode, mtry));
+    return rcpp_result_gen;
+END_RCPP
+}
 // qr_tau_para_diff_cpp
 List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::rowvec weights, const arma::colvec taurange, const double tau_min, const double tol, const uint maxit, const uint max_num_tau, const bool use_residual);
 RcppExport SEXP _rf_qr_tau_para_diff_cpp(SEXP xSEXP, SEXP ySEXP, SEXP weightsSEXP, SEXP taurangeSEXP, SEXP tau_minSEXP, SEXP tolSEXP, SEXP maxitSEXP, SEXP max_num_tauSEXP, SEXP use_residualSEXP) {
@@ -51,6 +71,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rf_CenQRForest_C", (DL_FUNC) &_rf_CenQRForest_C, 13},
+    {"_rf_QPRForest_C", (DL_FUNC) &_rf_QPRForest_C, 10},
     {"_rf_qr_tau_para_diff_cpp", (DL_FUNC) &_rf_qr_tau_para_diff_cpp, 9},
     {NULL, NULL, 0}
 };
