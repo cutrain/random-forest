@@ -482,8 +482,9 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
   //cc: last row in the linear programming tableau of QR;
   arma::rowvec cc = arma::zeros<arma::rowvec>(nvar+1+2*n);
   for(uint j = nvar+1;j<nvar+n+1;j++){
-    cc[j] = tau*weights[j];
-    cc[j+n] = (1-tau)*weights[j];
+    uint index_weight = j-nvar-1;
+    cc[j] = tau*weights[index_weight];
+    cc[j+n] = (1-tau)*weights[index_weight];
   }
 
   arma::colvec col_one = arma::ones<arma::colvec>(n);
@@ -800,15 +801,19 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
     }
     //cout << "est_beta dimension" << est_beta.n_cols << endl;
     //cout << "tau_t is "<< tau_t<< endl;
-    if(last_flag==true&&j==0){
-      est_beta.shed_col(tau_t);
-      tau_list.erase(tau_list.begin()+tau_t-2);
-      dual_sol.shed_cols(tau_t-1,max_num_tau-1);
-      dual_sol.shed_col(tau_t-3);
-    }else{
-      est_beta.shed_col(tau_t);
-      dual_sol.shed_cols(tau_t-1,max_num_tau-1);
-    }
+  if(last_flag==true&&j==0&&tau_t>=3){
+    est_beta.shed_col(tau_t);
+    tau_list.erase(tau_list.begin()+tau_t-2);
+    dual_sol.shed_cols(tau_t-1,max_num_tau-1);
+    dual_sol.shed_col(tau_t-3);
+  }else if(last_flag==true&&j==0){
+    est_beta.shed_col(tau_t);
+    tau_list.erase(tau_list.begin()+tau_t-2);
+    dual_sol.shed_cols(tau_t-1,max_num_tau-1);
+  }else{
+    est_beta.shed_col(tau_t);
+    dual_sol.shed_cols(tau_t-1,max_num_tau-1);
+  }
 
 
     //cout<<est_beta.n_cols<<endl;
