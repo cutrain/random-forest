@@ -676,11 +676,11 @@ std::shared_ptr<Tree> Forest::train_tree(const arma::mat& matZ,
   }
   print(2);
 
-  std::cout<<"ndcount is "<<ndcount<<std::endl;
+  // std::cout<<"ndcount is "<<ndcount<<std::endl;
 
   arma::uvec nonEmpty = arma::regspace<arma::uvec>(0, ndcount);
   arma::vec split_values_temp(split_vars(nonEmpty));
-  std::cout<<"split_values number is "<<split_values_temp.n_elem<<std::endl;
+  // std::cout<<"split_values number is "<<split_values_temp.n_elem<<std::endl;
 
   print(3);
   shared_ptr<Tree> tr = make_shared<Tree>(left_childs(nonEmpty),
