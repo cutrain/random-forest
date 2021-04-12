@@ -331,7 +331,7 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& matZ,
         k_index = k.index_min();
 
       }
-      std::cout <<"min k is "<<k.min()<<std::endl;
+      // std::cout <<"min k is "<<k.min()<<std::endl;
 
       free_var_basic(k_index) = 1;
 
@@ -340,7 +340,7 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& matZ,
     ee = yy/yy(k_index);
     ee(k_index) = 1-1/yy(k_index);
 
-    std::cout <<"IB(k_index) is "<<IB(k_index)<<std::endl;
+    // std::cout <<"IB(k_index) is "<<IB(k_index)<<std::endl;
     // cout <<"k_index is "<<k_index<<endl;
     if(IB(k_index)<=nvar+n){
 
@@ -470,7 +470,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
 #ifdef DEBUG
   ProfilerStart("tau.prof");
 #endif
-  print_enter("simplex:");
+  // print_enter("simplex:");
   //n: number of obs;
   uint n = x.n_rows;
 
@@ -575,7 +575,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
     arma::rowvec dbarh = arma::zeros<arma::rowvec>(n);
     arma::vec temp1 = arma::zeros<arma::vec>(n);
     arma::vec temp = arma::zeros<arma::vec>(n);
-    print(0);
+    // print(0);
     while(tau_t<max_num_tau){
       // std::cout<<"tau_t is "<<tau_t<<std::endl;
       if(tau_t>0){
@@ -631,14 +631,14 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
           tsep = 0;
           t = arma::as_scalar(r1(t_rr));
         }else{
-          print(1);
+          // print(1);
           //cout << rr.n_cols<< endl;
           //cout << gammax.n_cols <<endl;
 
           rr.row(0) = gammax.row(n);
 
           for(uint i = 0;i<r2.n_elem;i++){
-            std::cout<<"r2i is "<<r2(i)<<std::endl;
+            // std::cout<<"r2i is "<<r2(i)<<std::endl;
             if(r2(i)==0){
               rr(1,i) = 0;
               rr(0,i) = -abs(rr(0,i));
@@ -646,7 +646,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
               rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
             }
           }
-          print(2);
+          // print(2);
           if(rr.min()>-tol)
             break;
           //cout <<"rr_min is "<<rr.min()<<endl;
@@ -681,7 +681,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
             yy(n) = yy(n)+weights(r2[t_rr]-(1+nvar+n));
           }
 
-          std::cout<<"min k is "<<k.min()<<std::endl;
+          // std::cout<<"min k is "<<k.min()<<std::endl;
 
         }else{
           //cout << t_rr<< endl;
@@ -702,15 +702,15 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
             k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
             k_index = k.index_min();
           }
-          std::cout<<"min k is "<<k.min()<<std::endl;
+          // std::cout<<"min k is "<<k.min()<<std::endl;
           free_var_basic(k_index) = 1;
         }
-        print(3);
+        // print(3);
         ee = yy/yy(k_index);
         ee(k_index) = 1-1/yy(k_index);
 
-        std::cout <<"IB(k_index) is "<<IB(k_index)<<std::endl;
-        std::cout <<"free_var_basic(k_index) is "<<free_var_basic(k_index)<<std::endl;
+        // std::cout <<"IB(k_index) is "<<IB(k_index)<<std::endl;
+        // std::cout <<"free_var_basic(k_index) is "<<free_var_basic(k_index)<<std::endl;
         // cout <<"k_index is "<<k_index<<endl;
         if(IB(k_index)<=nvar+n){
           gammax.col(t_rr) = rep_cpp(0,gammax.n_rows).t();
@@ -724,7 +724,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
           r1(t_rr) = IB(k_index)-n;
           r2(t_rr) = IB(k_index);
         }
-        std::cout <<"r2(t_rr) is "<<r2(t_rr)<<std::endl;
+        // std::cout <<"r2(t_rr) is "<<r2(t_rr)<<std::endl;
         gammax = gammax-ee*gammax.row(k_index);
         b = b-ee*arma::as_scalar(b[k_index]);
         IB(k_index) = t;
@@ -836,10 +836,10 @@ arma::vec quantreg::ranks_cpp(const arma::vec& matY,
                          uint max_num_tau) const{
 
   // quantreg qr(taurange);
-  print_enter("ranks:");
+  // print_enter("ranks:");
   uint n_Z = matZ.n_cols;
   uint n = matY.n_elem;
-  std::cout<<"n is "<<n<<std::endl;
+  // std::cout<<"n is "<<n<<std::endl;
   arma::vec ranks = arma::zeros<arma::vec>(n);
 
   //Initialize estimation output matrix;
@@ -852,10 +852,10 @@ arma::vec quantreg::ranks_cpp(const arma::vec& matY,
 
   //tau_list:: a list of tau, automatically generated in alg;
   vector<double> tau_list;
-  print(0);
+  // print(0);
   qr_tau_para_diff_cpp(matZ,matY,weights,taurange,est_beta,dual_sol,
                        tau_list,1e-10,1e-14,100000,max_num_tau);
-  print(1);
+  // print(1);
   uint J = tau_list.size();
 
 
