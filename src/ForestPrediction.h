@@ -1,13 +1,12 @@
 #ifndef ForestPrediction_h
 #define ForestPrediction_h
 
+#include "Tree.h"
+#include "Forest.h"
+#include "common.h"
 
 class ForestPrediction {
 public:
-  // ForestPrediction(const Data2* dat2,
-  //                  const arma::umat& ids,
-  //                  const std::vector<std::shared_ptr<Tree> >& trees,
-  //                  arma::uword n);
 
   ForestPrediction(const arma::mat& matX,
                    const arma::umat& ids,
@@ -36,3 +35,5 @@ private:
   arma::field<arma::uvec> tndB;
 
 };
+
+#endif /* ForestPrediction_h */
