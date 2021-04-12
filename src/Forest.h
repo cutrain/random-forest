@@ -13,6 +13,12 @@
 // using namespace arma;
 // using namespace std;
 
+typedef struct{
+  int status;
+  uint varsp;
+  double cutsp;
+}split_info;
+
 class Forest{
 public:
   Forest(uint nt,
@@ -133,20 +139,20 @@ public:
 
   arma::vec rep_cpp(double num,uint times) const;
 
-  uint split_rankscore(const arma::mat& matZ,
-                       const arma::mat& matX,
-                       const arma::mat& matY,
-                       const arma::vec& taurange,
-                       arma::field<arma::uvec>& nodeSample,
-                       arma::uvec& isLeaf,
-                       arma::vec& split_vars,
-                       arma::vec& split_values,
-                       arma::uvec& left_childs,
-                       arma::uvec& right_childs,
-                       uint& countsp,
-                       uint& ndcount,
-                       const arma::vec& quantile_level,
-                       uint max_num_tau) const;
+  split_info split_rankscore(const arma::mat& matZ,
+                             const arma::mat& matX,
+                             const arma::mat& matY,
+                             const arma::vec& taurange,
+                             arma::field<arma::uvec>& nodeSample,
+                             arma::uvec& isLeaf,
+                             arma::vec& split_vars,
+                             arma::vec& split_values,
+                             arma::uvec& left_childs,
+                             arma::uvec& right_childs,
+                             uint& countsp,
+                             uint& ndcount,
+                             const arma::vec& quantile_level,
+                             uint max_num_tau) const;
 
   arma::vec find_split_rankscore(arma::uword nd,
                                  const arma::mat& matZ,
