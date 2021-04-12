@@ -22,7 +22,7 @@ int Forest::trainRF(std::vector<std::shared_ptr<Tree> >& trees,
   print_enter("trainRF:");
   print(-1);
   for(size_t i = 0; i != NUM_TREE; i++) {
-    print(i);
+    // print(i);
     trees.push_back(train_tree(matZ.rows( ids.col(i) ),
                             matX.rows( ids.col(i) ),
                             matY( ids.col(i) ),
@@ -79,11 +79,11 @@ std::shared_ptr<Tree> Forest::train_tree(const arma::mat& matZ,
   }
   print(2);
 
-  std::cout<<"ndcount is "<<ndcount<<std::endl;
+  // std::cout<<"ndcount is "<<ndcount<<std::endl;
 
   arma::uvec nonEmpty = arma::regspace<arma::uvec>(0, ndcount);
   arma::vec split_values_temp(split_vars(nonEmpty));
-  std::cout<<"split_values number is "<<split_values_temp.n_elem<<std::endl;
+  // std::cout<<"split_values number is "<<split_values_temp.n_elem<<std::endl;
 
   print(3);
   shared_ptr<Tree> tr = make_shared<Tree>(left_childs(nonEmpty),
@@ -419,7 +419,7 @@ split_info Forest::find_split_rankscore(arma::uword nd,
                                         const arma::field<arma::uvec>& nodeSample,
                                         const arma::vec& quantile_level,
                                         uint max_num_tau) const {
-  
+
   // print_enter("find split:");
   arma::mat nodeSampleX = matX.rows(nodeSample(nd));
   arma::mat nodeSampleY = matY.rows(nodeSample(nd));
@@ -432,41 +432,41 @@ split_info Forest::find_split_rankscore(arma::uword nd,
   uint n_X = nodeSampleX.n_cols;
   arma::uvec spSet = arma::shuffle( arma::regspace<arma::uvec>(0,n_X-1) );
   arma::rowvec weights = arma::ones<arma::rowvec>(n_obs);
-  
+
   quantreg qr(taurange);
   // print(1);
-  
+
   double A2 = 1.0/12.0;
   uint n = nodeSampleY.n_elem;
   arma::vec ranks = arma::zeros<arma::vec>(n);
-  
-  
+
+
   uint iteration = 0;
   arma::vec vecsp = arma::zeros<arma::vec>(2);
   split_info sp_info;
   sp_info.status = -1;
   // print(2);
   if(arma::rank(nodeSampleZ)<n_Z){
-    
+
     // vecsp(0) = -1;
     // vecsp(1) = 0;
     sp_info.status = -1;
     sp_info.varsp = 0;
     sp_info.cutsp = 0;
-    
-    
+
+
   }else{
-    
+
     arma::vec ranks = qr.ranks_cpp(nodeSampleY,nodeSampleZ,weights,taurange,
                                    max_num_tau);
-    
+
     arma::vec rankscore = arma::zeros<arma::vec>(n_X);
     // print(3);
-    
+
     uint index_max = 0;
     double max_value = 0.0;
     for(auto i :spSet.head(MTRY)){
-      
+
       rankscore(i) = qr.rankscore_cpp(nodeSampleX.col(i),nodeSampleZ,weights,
                 taurange,ranks,max_num_tau);
       // std::cout<<"rankscore is "<<rankscore(i)<<std::endl;
@@ -474,87 +474,87 @@ split_info Forest::find_split_rankscore(arma::uword nd,
         max_value = rankscore(i);
         index_max = i;
       }
-      
+
     }
     // print(4);
-    
+
     uint varsp = index_max;
     arma::vec nodeSplitX = nodeSampleX.col(index_max);
     double cutsp = 0.0;
     uint n_quantile = 0;
     double rankscore_split = 0.0;
     double rankscore_split_temp = 0.0;
-    
+
     n_quantile = quantile_level.n_elem;
     arma::vec quantile_x = arma::zeros<arma::vec>(n_quantile);
     if(n_obs<quantile_level.n_elem)  {
       quantile_x.subvec(0,(n_obs-1)) = arma::sort( nodeSplitX);
       n_quantile = n_obs-2;
-      
+
     }
     else{
-      
+
       quantile_x = arma::linspace<arma::vec>(arma::max(nodeSplitX),
                                              arma::min(nodeSplitX),
                                              quantile_x.n_elem);
       n_quantile = quantile_x.n_elem-1;
-      
+
     }
     // print(5);
     for(uint j = 1;j < n_quantile;j++){
-      
+
       // std::cout<<"j is "<<j<<std::endl;
       arma::vec matXnode_ind = arma::zeros<arma::vec>(n);
-      
+
       for(uint i = 0;i<n;i++){
-        
+
         if(nodeSplitX(i)<=quantile_x(j)){
           matXnode_ind(i) = 1;
         }else{
           matXnode_ind(i) = 0;
         }
-        
+
       }
-      
+
       rankscore_split_temp = qr.rankscore_cpp(matXnode_ind,nodeSampleZ,weights,
                                               taurange,ranks,
                                               max_num_tau);
       if(rankscore_split_temp>rankscore_split){
-        
+
         rankscore_split = rankscore_split_temp;
         cutsp = quantile_x(j);
-        
+
       }
     }
     // print(6);
-    
+
     // double cri_first = general_cri(1);
     // bool unique_cri = all(vectorise(general_cri)==cri_first);
     // cout<<unique_cri<<endl;
-    
+
     // vecsp(0) = varsp;
     // vecsp(1) = cutsp;
     sp_info.status = 1;
     sp_info.varsp = varsp;
     sp_info.cutsp = cutsp;
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
   }
-  
+
   return sp_info;
-  
+
   // return List::create(Named("general_cri") = general_cri,
   //                     Named("index") = general_cri_index);
   // Named("gradient") = gradient,
   // Named("G_mat") = G_mat,
   // Named("tau_new") = tau_new,
   // Named("residual") = r_vec);
-  
+
 }
 
 uint Forest::split_rankscore(const arma::mat& matZ,
@@ -579,7 +579,7 @@ uint Forest::split_rankscore(const arma::mat& matZ,
   uint n_obs = matX.n_rows;
   uint ndc1 = 0;
   uint ndc2 = 0;
-  
+
   while(status==-1 && countsp<=ndcount){
     nd = countsp;
     split_info best_split = find_split_rankscore(nd,matZ,matX,matY,
@@ -607,12 +607,12 @@ uint Forest::split_rankscore(const arma::mat& matZ,
     ndc2 = ndcount + 2;
     left_childs(nd) = ndc1;
     right_childs(nd) = ndc2;
-    
+
     arma::uvec nodeSamplend = std::move(nodeSample(nd));
     arma::vec xvarspsub = matX(varsp*n_obs + nodeSamplend);
     nodeSample(ndc1) = nodeSamplend(find(xvarspsub <=cutsp));
     nodeSample(ndc2) = nodeSamplend(find(xvarspsub >cutsp));
-    
+
     if(nodeSample(ndc1).size() < MIN_SPLIT1) {
       isLeaf(ndc1) = 1;
     } else {
@@ -631,7 +631,7 @@ uint Forest::split_rankscore(const arma::mat& matZ,
   }else{
     end = 1;
   }
-  
+
   // std::cout<< "ndcount is "<<ndcount<<std::endl;
   // std::cout<< "countsp is "<<countsp<<std::endl;
   return end;
@@ -667,8 +667,8 @@ std::shared_ptr<Tree> Forest::train_tree(const arma::mat& matZ,
                           isLeaf,split_vars,split_values,left_childs,
                           right_childs,countsp,ndcount,quantile_level,
                           max_num_tau);
-    std::cout<<"end is "<<end<<std::endl;
-    cout << "max_node="  <<  MAX_NODE << endl;
+    // std::cout<<"end is "<<end<<std::endl;
+    // cout << "max_node="  <<  MAX_NODE << endl;
     if(ndcount + 2 >= MAX_NODE) {
       isLeaf.elem(arma::find(left_childs == 0)).ones();
       break;
@@ -690,10 +690,10 @@ std::shared_ptr<Tree> Forest::train_tree(const arma::mat& matZ,
                                           isLeaf(nonEmpty));
   print(4);
   shared_ptr<arma::vec> sv = tr->split_vars;
-  cout << "real split vars=" << sv->n_elem << endl;
+  // cout << "real split vars=" << sv->n_elem << endl;
   shared_ptr<arma::vec> sv2 = tr->get_split_vars();
-  cout << "split vars=" << sv2->n_elem << endl;
-  cout<<"split_values is "<<tr->get_split_values()->n_elem<<endl;
+  // cout << "split vars=" << sv2->n_elem << endl;
+  // cout<<"split_values is "<<tr->get_split_values()->n_elem<<endl;
 
   // List tr = List::create(Named("split_vars") = split_vars.subvec(0,ndcount-1),
   //                        Named("split_values") = split_values.subvec(0,ndcount-1),
