@@ -144,8 +144,9 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   //cc: last row in the linear programming tableau of QR;
   arma::rowvec cc(nvar+1+2*n,arma::fill::zeros);
   for(uint j = nvar+1;j<nvar+n+1;j++){
-    cc[j] = tau*weights[j];
-    cc[j+n] = (1-tau)*weights[j];
+    uint index_weight = j-nvar-1;
+    cc[j] = tau*weights[index_weight];
+    cc[j+n] = (1-tau)*weights[index_weight];
   }
 
   arma::colvec col_one(n);
