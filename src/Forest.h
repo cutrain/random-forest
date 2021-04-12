@@ -139,7 +139,7 @@ public:
 
   arma::vec rep_cpp(double num,uint times) const;
 
-  split_info split_rankscore(const arma::mat& matZ,
+  uint split_rankscore(const arma::mat& matZ,
                              const arma::mat& matX,
                              const arma::mat& matY,
                              const arma::vec& taurange,
@@ -154,7 +154,7 @@ public:
                              const arma::vec& quantile_level,
                              uint max_num_tau) const;
 
-  arma::vec find_split_rankscore(arma::uword nd,
+  split_info find_split_rankscore(arma::uword nd,
                                  const arma::mat& matZ,
                                  const arma::mat& matX,
                                  const arma::mat& matY,
