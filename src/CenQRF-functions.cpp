@@ -167,13 +167,11 @@ SEXP QPRForest_C(const arma::mat& matZ0,
   arma::umat id2 = ids0;
   //ids.rows( arma::regspace<arma::uvec>(0, n-1)  );
 
-  ForestPrediction fp(matX0,id2,trees);
+  ForestPrediction fp(matX0, id2, trees);
   return Rcpp::List::create(Rcpp::Named("trees") = treeList,
                             Rcpp::Named("split_values") = tree_split,
                             Rcpp::Named("subsample.id") = id2,
                             Rcpp::Named("nodeLabel") = fp.get_nodeLabel(),
                             Rcpp::Named("nodeSize") = fp.get_nodeSize(),
                             Rcpp::Named("nodeMap") = fp.get_nodeMap());
-
-
 }

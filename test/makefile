@@ -1,5 +1,5 @@
 SRC_PREFIX=../src
-SRCOBJ=Forest.o Tree.o quantreg_simplex.o CenQRF-functions.o common.o
+SRCOBJ=common.o Forest.o Tree.o ForestPrediction.o quantreg.o quantreg_simplex.o CenQRF-functions.o
 SRCOBJ:=$(patsubst %.o,$(SRC_PREFIX)/%.o,$(SRCOBJ))
 TESTOBJ=test.o speedtest.o 
 OBJ=$(TESTOBJ) $(SRCOBJ)

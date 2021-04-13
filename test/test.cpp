@@ -332,8 +332,8 @@ int main(int argc, char *argv[]) {
   RInside R(argc, argv);
   R.parseEvalQ("library('Matrix');");
 
-  // test_qr_simplex();
-  test_cqr();
+  test_qr_simplex();
+  // test_cqr();
 
   return 0;
 }
