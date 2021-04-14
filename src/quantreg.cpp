@@ -1,6 +1,8 @@
 #include "quantreg.h"
 #include "common.h"
 
+const double eps = 1e-14;
+
 double quantreg::G_func(uint& order, arma::vec& matY,arma::vec& delta) const{
 
   uint n = matY.n_elem;
@@ -110,9 +112,33 @@ void quantreg::in(uint us,
   }
 }
 
+arma::vec quantreg::get_dh(const arma::mat& gammaxb,
+                           const arma::vec& u,
+                           const arma::vec& v,
+                           const double tau,
+                           const double tau_min,
+                           const arma::rowvec& weights) const {
+  arma::mat xh = gammaxb.cols(find(u==0&&v==0));
+  arma::mat xbarh = gammaxb.cols(find(u==1||v==1));
+  arma::rowvec dbarh = u.t()%rep_cpp(tau-tau_min,u.n_elem)+
+    v.t()%rep_cpp(tau-tau_min-1,v.n_elem);
+  dbarh = dbarh%weights;
+
+  arma::vec dh(sum(u==1||v==1),arma::fill::zeros);
+  try{
+    dh = solve(xh,-xbarh*dbarh.cols(find(u==1||v==1)).t());
+  }
+  catch(const runtime_error& error){
+    dh = -arma::pinv(xh)*xbarh*dbarh.cols(find(u==1||v==1));
+  }
+
+  dh = dh/weights.elem(find(u==0&&v==0)).as_col()+1-tau;
+  return dh;
+}
+
 
 //main function to implement quantile regression with simplex
-//method;
+//method at a fixed quantile level;
 //@param x design matrix;
 //@param y a vector of response variable;
 //@param weights a vector with the same length as y
@@ -530,17 +556,6 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
     arma::uvec r2 = arma::zeros<arma::uvec>(nvar+1);
     arma::mat rr = arma::zeros<arma::mat>(2, 1+nvar);
 
-    //Initialize estimation output matrix;
-    //est_beta: estimation matrix;
-    // arma::mat est_beta(nvar+1,1,arma::fill::zeros);
-    // est_beta = arma::regspace(1,nvar+1);
-
-    //dual_sol: dual solution matrix a sparse matrix
-    // arma::sp_mat dual_sol(n,max_num_tau);
-
-    //tau_list:: a list of tau, automatically generated in alg;
-    // vector<double> tau_list;
-
     //c0: a vector helps to generate the next tau level;
     arma::rowvec c0 = arma::zeros<arma::rowvec>(1+nvar+2*n);
     c0.subvec(nvar+1,nvar+n) = weights;
@@ -553,36 +568,21 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
 
     // variables used in the while loop;
     uint j = 0;
-    arma::vec yy = arma::zeros<arma::vec>(gammax.n_rows);
-    arma::vec ee = arma::zeros<arma::vec>(gammax.n_rows);
-    uint t_rr = 0;
-    uint tsep = 0;
-    arma::uvec nokeep = arma::zeros<arma::uvec>(gammax.n_rows);
-    double t = 0;
-    arma::vec k = arma::zeros<arma::vec>(gammax.n_rows);
-    uint k_index = 0;
 
     arma::vec estimate = arma::zeros<arma::vec>(nvar+1);
-    uint tau_t = 0;
-    arma::rowvec r1j_temp = arma::zeros<arma::rowvec>(1+nvar);
-    arma::rowvec r1j = arma::zeros<arma::rowvec>(2*(1+nvar));
-    arma::rowvec r0j = arma::zeros<arma::rowvec>(2*(1+nvar));
-    arma::rowvec theta = arma::zeros<arma::rowvec>(2*(1+nvar));
+    int tau_t = 0;
     arma::vec u = arma::zeros<arma::vec>(n);
-    arma::vec u_temp = arma::regspace<arma::vec>(1+nvar,nvar+n);
     arma::vec v = arma::zeros<arma::vec>(n);
-    arma::vec v_temp = arma::regspace<arma::vec>(1+nvar+n,nvar+2*n);
-    arma::rowvec dbarh = arma::zeros<arma::rowvec>(n);
-    arma::vec temp1 = arma::zeros<arma::vec>(n);
-    arma::vec temp = arma::zeros<arma::vec>(n);
+    arma::vec pre = arma::zeros<arma::vec>(n);
+    arma::vec now = arma::zeros<arma::vec>(n);
     // print(0);
     while(tau_t<max_num_tau){
       // std::cout<<"tau_t is "<<tau_t<<std::endl;
       if(tau_t>0){
-        r1j_temp = c0.cols(IB)*gammax(arma::span(0,n-1),arma::span::all);
-        r1j = join_rows(r1j_temp-1,1-r1j_temp);
-        r0j = join_rows(gammax.row(n),weights.elem(r1-(1+nvar)).as_row()-gammax.row(n));
-        theta = r0j/r1j;
+        arma::rowvec r1j_temp = c0.cols(IB)*gammax(arma::span(0,n-1),arma::span::all);
+        arma::rowvec r1j = join_rows(r1j_temp-1,1-r1j_temp);
+        arma::rowvec r0j = join_rows(gammax.row(n),weights.elem(r1-(1+nvar)).as_row()-gammax.row(n));
+        arma::rowvec theta = r0j/r1j;
         bool choose = false;
         double theta_min = 0;
         for (int i = 0;i < (1+nvar)*2; i++)
@@ -614,6 +614,9 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
       j = 0;
       while(j<maxit){
         // std::cout << "j is "<< j << std::endl;
+        int tsep;
+        int t_rr;
+        double t;
 
         if(tau_t==0&&j<nvar+1){
           rr.row(0) = gammax.row(n);
@@ -649,12 +652,11 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
           // print(2);
           if(rr.min()>-tol)
             break;
-          //cout <<"rr_min is "<<rr.min()<<endl;
-          tsep = rr.index_min();
+          int index = rr.index_min();
           //cout << "tsep is "<< tsep << endl;
-          t_rr = floor(tsep/2);
+          t_rr = index/2;
           //cout << "t_rr is "<< t_rr << endl;
-          tsep = tsep-floor(tsep/2)*2;
+          tsep = index % 2;
           // cout << "tsep is "<< tsep << endl;
 
           if(tsep==0){
@@ -665,6 +667,8 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
         }
 
         // std::cout<<"DONE3"<<std::endl;
+        int k_index;
+        arma::vec yy;
         if (r2(t_rr)!=0){
           if(tsep==0){
             yy = gammax.col(t_rr);
@@ -672,8 +676,8 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
             yy = -gammax.col(t_rr);
           }
 
-          k = b/yy;
-          nokeep = arma::find(yy<=0 || free_var_basic==1);
+          arma::vec k = b/yy;
+          arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
           k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
           k_index = k.index_min();
 
@@ -686,19 +690,19 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
         }else{
           //cout << t_rr<< endl;
           yy = gammax.col(t_rr);
-          if (abs(yy(n)) < 1e-10) {
-            cout << "eps found!!!" << endl;
-          }
+          // if (abs(yy(n)) < 1e-10) {
+          //   cout << "eps found!!!" << endl;
+          // }
           if(yy(n)<0){
 
-            k = b/yy;
-            nokeep = arma::find(yy<=0 || free_var_basic==1);
+            arma::vec k = b/yy;
+            arma::uvec nokeep = arma::find(yy<=0 || free_var_basic==1);
             k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
             k_index = k.index_min();
 
           }else{
-            k = -b/yy;
-            nokeep = arma::find(yy>=0 || free_var_basic==1);
+            arma::vec k = -b/yy;
+            arma::uvec nokeep = arma::find(yy>=0 || free_var_basic==1);
             k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
             k_index = k.index_min();
           }
@@ -706,7 +710,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
           free_var_basic(k_index) = 1;
         }
         // print(3);
-        ee = yy/yy(k_index);
+        arma::vec ee = yy/yy(k_index);
         ee(k_index) = 1-1/yy(k_index);
 
         // std::cout <<"IB(k_index) is "<<IB(k_index)<<std::endl;
@@ -736,7 +740,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
 
 
       if(j==maxit){
-        //cout << "WARNING:May not converge (tau = "<< tau <<")"<< endl;
+        cout << "WARNING:May not converge (tau = "<< tau <<")"<< endl;
       }
 
       arma::uvec tmp = find(IB<nvar+1);
@@ -767,35 +771,20 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
        cout << "in cpp failed" << endl;
        */
 
-      arma::mat xh = gammaxb.cols(find(u==0&&v==0));
-      arma::mat xbarh = gammaxb.cols(find(u==1||v==1));
-      dbarh = u.t()%rep_cpp(tau-tau_min,u.n_elem)+
-        v.t()%rep_cpp(tau-tau_min-1,v.n_elem);
-      dbarh = dbarh%weights;
-      //cout<<"dbarh dimension is "<< dbarh.n_elem<<endl;
 
-      arma::vec dh(sum(u==1||v==1),arma::fill::zeros);
-      try{
-        dh = solve(xh,-xbarh*dbarh.cols(find(u==1||v==1)).t());
-      }
-      catch(const std::runtime_error& error){
-        dh = -arma::pinv(xh)*xbarh*dbarh.cols(find(u==1||v==1));
-      }
-      //cout << "dh dimension is "<<dh.n_rows<<endl;
+      arma::vec dh = get_dh(gammaxb,u,v,tau,tau_min,weights);
 
-      dh = dh/weights.elem(find(u==0&&v==0)).as_col()+1-tau;
-
-      temp1 = u;
+      now = u;
       if(use_residual==false){
         dh.elem(find(dh==tau-tau_min)).ones();
         dh.elem(find(dh==tau-tau_min-1)).zeros();
       }
-      temp1(find(u==0&&v==0)) = dh;
+      now(find(u==0&&v==0)) = dh;
       if(tau_t>0){
-        dual_sol.col(tau_t-1) = temp1-temp;
+        dual_sol.col(tau_t-1) = now - pre;
       }
 
-      temp = temp1;
+      pre = now;
 
       tau_t++;
     }
