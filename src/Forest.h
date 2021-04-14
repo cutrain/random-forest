@@ -66,6 +66,17 @@ public:
               uint max_num_tau,
               const arma::umat& ids);
 
+  int trainRF(std::vector<std::shared_ptr<Tree> >& trees,
+              const arma::mat& matZ,
+              const arma::mat& matX,
+              const arma::vec& matY,
+              const arma::uvec& delta,
+              const double& tau,
+              const arma::vec& weight_rf,
+              const arma::rowvec& weight_censor,
+              const arma::vec& quantile_level,
+              const arma::umat& ids);
+
   // Grow A Tree in the forest
   std::shared_ptr<Tree> train_tree(const arma::mat& matZ,
                                    const arma::mat& matX,
@@ -83,6 +94,14 @@ public:
                                    const arma::vec& taurange,
                                    const arma::vec& quantile_level,
                                    uint max_num_tau) const;
+
+  std::shared_ptr<Tree> train_tree(const arma::mat& matZ,
+                                   const arma::mat& matX,
+                                   const arma::mat& matY,
+                                   const double& tau,
+                                   const arma::vec& weight_rf,
+                                   const arma::rowvec& weight_censor,
+                                   const arma::vec& quantile_level) const;
 
   uint split_generalized_MM(const arma::mat& matZ,
                             const arma::mat& matX,
@@ -113,6 +132,32 @@ public:
                                       const arma::vec& time_interest,
                                       const arma::field<arma::uvec>& nodeSample,
                                       const arma::vec& quantile_level) const;
+
+  split_info find_split_generalized_WW(uint nd,
+                                       const arma::mat& matZ,
+                                       const arma::mat& matX,
+                                       const arma::mat& matY,
+                                       const double& tau,
+                                       const arma::vec& weight_rf,
+                                       const arma::rowvec& weight_censor,
+                                       const arma::field<arma::uvec>& nodeSample,
+                                       const arma::vec& quantile_level)const;
+
+  uint split_general_WW(const arma::mat& matZ,
+                        const arma::mat& matX,
+                        const arma::mat& matY,
+                        const double& tau,
+                        const arma::vec& weight_rf,
+                        const arma::rowvec& weight_censor,
+                        arma::field<arma::uvec>& nodeSample,
+                        arma::uvec& isLeaf,
+                        arma::vec& split_vars,
+                        arma::vec& split_values,
+                        arma::uvec& left_childs,
+                        arma::uvec& right_childs,
+                        uint& countsp,
+                        uint& ndcount,
+                        const arma::vec& quantile_level) const;
 
   double G_hat_rfsrc_cpp(double time,
                          const arma::mat& rfsrc_time_surv,
