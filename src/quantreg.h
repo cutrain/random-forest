@@ -61,13 +61,14 @@ public:
                    const double tau_min,
                    const arma::rowvec& weights) const;
 
-  void qr_tau_para_diff_fix_cpp(const arma::mat& matZ,
-                                const arma::colvec& matY,
-                                const arma::rowvec& weights,
-                                const double& TAU,
-                                arma::mat& est_beta,
-                                double tol = 1e-14,
-                                uint maxit = 100000) const;
+  void qr_tau_para_diff_fix_cpp(const arma::mat& x,
+                               const arma::colvec& y,
+                               const arma::rowvec& weights,
+                               const double& tau,
+                               arma::vec& est_beta,
+                               arma::vec& residual,
+                               double tol,
+                               uint maxit) const;
 
   void qr_tau_para_diff_cpp(const arma::mat& x,
                             const arma::colvec& y,

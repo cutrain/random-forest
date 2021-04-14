@@ -155,20 +155,21 @@ arma::vec quantreg::get_dh(const arma::mat& gammaxb,
 // a list of quantile levels as tau and the difference of dual
 //solution as dual_sol;
 
-void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& matZ,
-                                        const arma::colvec& matY,
+void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
+                                        const arma::colvec& y,
                                         const arma::rowvec& weights,
                                         const double& tau,
-                                        arma::mat& est_beta,
+                                        arma::vec& est_beta,
+                                        arma::vec& residual,
                                         double tol,
                                         uint maxit) const{
 
   //n: number of obs;
-  uint n = matZ.n_rows;
+  uint n = x.n_rows;
 
   //if(n>max_num_tau) max_num_tau = 2*n;
   //nvar: number of covariates;
-  uint nvar = matZ.n_cols;
+  uint nvar = x.n_cols;
   //cout << tau << endl;
   //cc: last row in the linear programming tableau of QR;
   arma::rowvec cc = arma::zeros<arma::rowvec>(nvar+1+2*n);
@@ -179,15 +180,15 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& matZ,
   }
 
   arma::colvec col_one= arma::ones<arma::colvec>(n);
-  arma::mat gammax_org = matZ;
+  arma::mat gammax_org = x;
   arma::mat gammaxb = gammax_org.t();
   //b: last column in the linear programming tableau of QR;
   arma::colvec col_zero = arma::zeros<arma::colvec>(1);
-  arma::colvec b = join_cols(matY,col_zero);
+  arma::colvec b = join_cols(y,col_zero);
   //flip the sign if y<0;
   for(uint i = 0;i<n;i++){
 
-    if(matY[i]<0){
+    if(y(i)<0){
 
       gammax_org.row(i) = -gammax_org.row(i);
       b.row(i) = -b.row(i);
@@ -201,7 +202,7 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& matZ,
   arma::uvec IB = arma::zeros<arma::uvec>(n);
   for(uint j = 0;j<n;j++){
 
-    if(matY[j]>=0) IB[j] = nvar+j+1;
+    if(y[j]>=0) IB[j] = nvar+j+1;
     else IB[j] = nvar+n+j+1;
 
   }
@@ -369,51 +370,36 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& matZ,
   estimate_temp = estimate_temp(sort_index(IB(tmp)));
 
   if(estimate_temp.n_elem!=nvar+1){
-
-    estimate.zeros();
-    estimate(sort(IB(tmp))) = estimate_temp;
-
+    est_beta.zeros();
+    est_beta(sort(IB(tmp))) = estimate_temp;
   }else{
-
-    estimate = estimate_temp;
+    est_beta = estimate_temp;
   }
 
-  est_beta = estimate;
+  // std::cout<<"DONE2"<<std::endl;
 
 
-  // u = in_cpp(u_temp,IB);
-  // v = in_cpp(v_temp,IB);
-  //
-  // arma::mat xh = gammaxb.cols(find(u==0&&v==0));
-  // arma::mat xbarh = gammaxb.cols(find(u==1||v==1));
-  // dbarh = u.t()%rep_cpp(tau,u.n_elem)+v.t()%rep_cpp(tau-1,v.n_elem);
-  // dbarh = dbarh%weights;
-  // //cout<<"dbarh dimension is "<< dbarh.n_elem<<endl;
-  //
-  // arma::vec dh = arma::zeros<arma::vec>(sum(u==1||v==1));
-  // try{
-  //
-  //   dh = solve(xh,-xbarh*dbarh.cols(find(u==1||v==1)).t());
-  //
-  // }
-  // catch(const std::runtime_error& error){
-  //
-  //   dh = -arma::pinv(xh)*xbarh*dbarh.cols(find(u==1||v==1));
-  //
-  // }
-  // //cout << "dh dimension is "<<dh.n_rows<<endl;
-  //
-  // dh = dh/weights.elem(find(u==0&&v==0)).as_col()+1-tau;
-  //
-  // temp1 = u;
-  // if(use_residual==false){
-  //
-  //   dh.elem(find(dh==tau)).ones();
-  //   dh.elem(find(dh==tau-1)).zeros();
-  //
-  // }
-  // temp1(find(u==0&&v==0)) = dh;
-  // dual_sol = temp1;
+
+  arma::uvec tmp_res = find(IB>=nvar+1);
+  arma::vec res_temp = b(tmp_res);
+  arma::uvec index_temp = IB(tmp_res);
+  for(uint i = 0;i<index_temp.n_elem;i++){
+    if(index_temp(i)>nvar+n){
+      index_temp(i) = index_temp(i)-n;
+      res_temp(i) = -res_temp(i);
+    }
+  }
+  // std::cout<<"DONE3"<<std::endl;
+  res_temp = res_temp(sort_index(index_temp));
+  // std::cout<<"index_max"<<index_temp.max()<<std::endl;
+  residual.zeros();
+  residual(sort(index_temp-nvar-1)) = res_temp;
+  // print_leave();
+
+#ifdef DEBUG
+  ProfilerStop();
+  cout << "finish" << endl;
+#endif
 
 }
 
