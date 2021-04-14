@@ -227,171 +227,135 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& matZ,
 
   // variables used in the while loop;
   uint j = 0;
-  arma::vec yy = arma::zeros<arma::vec>(gammax.n_rows);
-  arma::vec ee = arma::zeros<arma::vec>(gammax.n_rows);
-  uint t_rr = 0;
-  uint tsep = 0;
-  arma::uvec nokeep = arma::zeros<arma::uvec>(gammax.n_rows);
-  double t = 0;
-  arma::vec k = arma::zeros<arma::vec>(gammax.n_rows);
-  uint k_index = 0;
   arma::vec estimate = arma::zeros<arma::vec>(nvar+1);
-  uint tau_t = 0;
-  arma::rowvec r1j_temp = arma::zeros<arma::rowvec>(1+nvar);
-  arma::rowvec r1j = arma::zeros<arma::rowvec>(2*(1+nvar));
-  arma::rowvec r0j = arma::zeros<arma::rowvec>(2*(1+nvar));
   arma::vec u = arma::zeros<arma::vec>(n);
-  arma::vec u_temp = arma::regspace<arma::vec>(1+nvar,nvar+n);
   arma::vec v = arma::zeros<arma::vec>(n);
-  arma::vec v_temp = arma::regspace<arma::vec>(1+nvar+n,nvar+2*n);
-  arma::vec temp1 = arma::zeros<arma::vec>(n);
-  arma::vec temp = arma::zeros<arma::vec>(n);
+  arma::vec pre = arma::zeros<arma::vec>(n);
+  arma::vec now = arma::zeros<arma::vec>(n);
 
-  j = 0;
   while(j<maxit){
-    //cout << "j is "<< j << endl;
+    // std::cout << "j is "<< j << std::endl;
+    int tsep;
+    int t_rr;
+    double t;
 
-    if(tau_t==0&&j<nvar+1){
-
-
+    if(j<nvar+1){
       rr.row(0) = gammax.row(n);
       for(uint i = 0;i<r2.n_elem;i++){
-
+        // std::cout<<"i is "<<i<<std::endl;
         if(r2(i)==0){
-
           rr(1,i) = 0;
           rr(0,i) = -abs(rr(0,i));
-
         }else{
-
           rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
-
         }
-
       }
 
       t_rr = j;
       tsep = 0;
       t = arma::as_scalar(r1(t_rr));
-
     }else{
+      // print(1);
       //cout << rr.n_cols<< endl;
       //cout << gammax.n_cols <<endl;
 
       rr.row(0) = gammax.row(n);
 
       for(uint i = 0;i<r2.n_elem;i++){
-
+        // std::cout<<"r2i is "<<r2(i)<<std::endl;
         if(r2(i)==0){
-
           rr(1,i) = 0;
           rr(0,i) = -abs(rr(0,i));
-
         }else{
-
           rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
-
         }
-
       }
-
-      if(rr.min()>-tol) break;
-      //cout <<"rr_min is "<<rr.min()<<endl;
-      tsep = rr.index_min();
+      // print(2);
+      if(rr.min()>-tol)
+        break;
+      int index = rr.index_min();
       //cout << "tsep is "<< tsep << endl;
-      t_rr = floor(tsep/2);
+      t_rr = index/2;
       //cout << "t_rr is "<< t_rr << endl;
-      tsep = tsep-floor(tsep/2)*2;
+      tsep = index % 2;
       // cout << "tsep is "<< tsep << endl;
 
       if(tsep==0){
-
         t = r1(t_rr);
-
       }else{
-
         t = r2(t_rr);
-
       }
-
     }
 
+    // std::cout<<"DONE3"<<std::endl;
+    int k_index;
+    arma::vec yy;
     if (r2(t_rr)!=0){
-
       if(tsep==0){
-
         yy = gammax.col(t_rr);
-
       }else{
-
         yy = -gammax.col(t_rr);
-
       }
 
-      k = b/yy;
-      nokeep = arma::find(yy<=0 || free_var_basic==1);
+      arma::vec k = b/yy;
+      arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
       k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
       k_index = k.index_min();
 
       if(tsep!=0){
-
         yy(n) = yy(n)+weights(r2[t_rr]-(1+nvar+n));
-
       }
+
+      // std::cout<<"min k is "<<k.min()<<std::endl;
 
     }else{
       //cout << t_rr<< endl;
       yy = gammax.col(t_rr);
+      // if (abs(yy(n)) < 1e-10) {
+      //   cout << "eps found!!!" << endl;
+      // }
       if(yy(n)<0){
 
-        k = b/yy;
-        nokeep = arma::find(yy<=0 || free_var_basic==1);
+        arma::vec k = b/yy;
+        arma::uvec nokeep = arma::find(yy<=0 || free_var_basic==1);
         k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
         k_index = k.index_min();
 
       }else{
-
-        k = -b/yy;
-        nokeep = arma::find(yy>=0 || free_var_basic==1);
+        arma::vec k = -b/yy;
+        arma::uvec nokeep = arma::find(yy>=0 || free_var_basic==1);
         k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
         k_index = k.index_min();
-
       }
-      // std::cout <<"min k is "<<k.min()<<std::endl;
-
+      // std::cout<<"min k is "<<k.min()<<std::endl;
       free_var_basic(k_index) = 1;
-
     }
-
-    ee = yy/yy(k_index);
+    // print(3);
+    arma::vec ee = yy/yy(k_index);
     ee(k_index) = 1-1/yy(k_index);
 
     // std::cout <<"IB(k_index) is "<<IB(k_index)<<std::endl;
+    // std::cout <<"free_var_basic(k_index) is "<<free_var_basic(k_index)<<std::endl;
     // cout <<"k_index is "<<k_index<<endl;
     if(IB(k_index)<=nvar+n){
-
       gammax.col(t_rr) = rep_cpp(0,gammax.n_rows).t();
       gammax(k_index,t_rr) = 1;
       r1(t_rr) = IB(k_index);
       r2(t_rr) = IB(k_index)+n;
-
     }else{
-
       gammax.col(t_rr) = rep_cpp(0,gammax.n_rows).t();
       gammax(k_index,t_rr) = -1;
       gammax(n,t_rr)  =  weights(IB[k_index]-(1+nvar+n));
       r1(t_rr) = IB(k_index)-n;
       r2(t_rr) = IB(k_index);
-
     }
-
+    // std::cout <<"r2(t_rr) is "<<r2(t_rr)<<std::endl;
     gammax = gammax-ee*gammax.row(k_index);
     b = b-ee*arma::as_scalar(b[k_index]);
     IB(k_index) = t;
     //cout << "t is " << t << endl;
-
+    // std::cout<<"DONE2"<<std::endl;
     j++;
-
   }
 
   if(j==maxit){
