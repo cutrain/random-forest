@@ -54,6 +54,13 @@ public:
           arma::vec &u,
           arma::vec &v) const;
 
+  arma::vec get_dh(const arma::mat& gammaxb,
+                   const arma::vec& u,
+                   const arma::vec& v,
+                   const double tau,
+                   const double tau_min,
+                   const arma::rowvec& weights) const;
+
   void qr_tau_para_diff_fix_cpp(const arma::mat& matZ,
                                 const arma::colvec& matY,
                                 const arma::rowvec& weights,
