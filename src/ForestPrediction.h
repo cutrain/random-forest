@@ -9,9 +9,11 @@ class ForestPrediction {
 public:
 
   ForestPrediction(const arma::mat& matX,
+                   const arma::mat& matX0,
                    const arma::umat& ids,
                    const std::vector<std::shared_ptr<Tree> >& trees) {
     uint n_X = matX.n_rows;
+    uint n_X0 = matX0.n_rows;
     uint NUM_TREE = trees.size();
     arma::umat ndy = arma::zeros<arma::umat>(NUM_TREE, n_X);
     arma::field<arma::uvec> ndsz(NUM_TREE);
@@ -65,9 +67,34 @@ public:
     }
 
 
+    arma::mat rfweights = arma::zeros<arma::mat>(n_X,n_X0);
+    for(uint it = 0;it<NUM_TREE;it++){
+      // std::cout<<"it is "<<it<<std::endl;
+      arma::uvec ndsz_temp = ndsz(it);
+      // std::cout<<"DONE1"<<std::endl;
+      arma::urowvec nodelabel = ndy.row(it);
+      arma::uvec nodemap = tnd3B(it);
+
+      for(uint i = 0;i<n_X;i++){
+        // std::cout<<"i is "<<i<<std::endl;
+        uint nl = nodelabel(i);
+        uint nd = nodemap(nl);
+        // std::cout<<"nd is "<<nd<<std::endl;
+        arma::uvec id_temp = ids.col(it);
+        for(uint l:id_temp){
+          if(nodelabel(l)==nl){
+            rfweights(l*n_X+i) = rfweights(l*n_X+i)+1/(double) ndsz_temp(nd);
+          }
+
+        }
+      }
+    }
+
+
     this->nodeLabelB = ndy;
     this->nodeSizeB = ndsz;
     this->tndB = tnd3B;
+    this->rfweights = rfweights;
   }
 
 
@@ -83,6 +110,10 @@ public:
   {
     return tndB;
   };
+  const arma::mat& get_weights() const
+  {
+    return rfweights;
+  };
 private:
   arma::field<arma::uvec> nodeSizeB;
 
@@ -90,6 +121,8 @@ private:
 
   // vector that defines a map between node number and its location in matrix nodeSize
   arma::field<arma::uvec> tndB;
+
+  arma::mat rfweights;
 
 };
 
