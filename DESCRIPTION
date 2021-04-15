@@ -9,11 +9,14 @@ Maintainer: Huichen Zhu <TODO@gmail.com>
 Depends: R (>= 3.3.0)
 LinkingTo: Rcpp, RcppArmadillo
 Imports: 
-	Rcpp (>= 0.11.2),
-	RcppArmadillo (>= 0.10.3)
+  Rcpp (>= 0.11.2),
+	randomForestSRC,
+	Matrix,
+	MASS
 License: GPL-3
 Description: TODO
 LazyData: TODO
 Encoding: UTF-8
 URL: TODO
 BugReports: TODO
+RoxygenNote: 7.1.1
