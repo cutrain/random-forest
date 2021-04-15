@@ -178,18 +178,18 @@ SEXP QPRForest_C(const arma::mat& matZ0,
 
 
 // [[Rcpp::export]]
-Rcpp::List CenQRForest_WW_C(const arma::mat& matZ0,
-                            const arma::mat& matX0,
-                            const arma::vec& matY0,
-                            const arma::uvec& delta,
-                            const double& tau,
-                            const arma::vec& weight_rf,
-                            const arma::rowvec& weight_censor,
-                            const arma::vec& quantile_level,
-                            int numTree,
-                            int minSplit1,
-                            int maxNode,
-                            int mtry) {
+SEXP CenQRForest_WW_C(const arma::mat& matZ0,
+                      const arma::mat& matX0,
+                      const arma::vec& matY0,
+                      const arma::uvec& delta,
+                      const double& tau,
+                      const arma::vec& weight_rf,
+                      const arma::rowvec& weight_censor,
+                      const arma::vec& quantile_level,
+                      int numTree,
+                      int minSplit1,
+                      int maxNode,
+                      int mtry) {
   print_prefix("QPRForest_WW:");
   int n_obs = matZ0.n_rows;
   int N = delta.n_elem;
