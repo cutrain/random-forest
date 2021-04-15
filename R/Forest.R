@@ -195,7 +195,8 @@ CensQRforest <- function(matY,delta,matZ = NULL,matX,
 
 
   out$call <- Call
-  out$data <- list(.X = .X0, .Z = .Z0, .Y = .Y0, .D = .D0)
+  out$data <- list(.X = .X0[1:.n,], .Z = .Z0[1:.n,],
+                   .Y = .Y0[1:.n,], .D = .D0[1:.n,])
   # out$rName <- all.vars(formula)[1]
   # out$vNames <- attr(mt, "term.labels")
   out$control <- control
