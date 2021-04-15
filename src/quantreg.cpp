@@ -164,200 +164,193 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
                                         double tol,
                                         uint maxit) const{
 
+#ifdef DEBUG
+  ProfilerStart("tau.prof");
+#endif
+
+  print_enter("simplex:");
   //n: number of obs;
   uint n = x.n_rows;
 
   //if(n>max_num_tau) max_num_tau = 2*n;
   //nvar: number of covariates;
   uint nvar = x.n_cols;
-  //cout << tau << endl;
   //cc: last row in the linear programming tableau of QR;
-  arma::rowvec cc = arma::zeros<arma::rowvec>(nvar+1+2*n);
+  arma::rowvec cc(nvar+1+2*n,arma::fill::zeros);
   for(uint j = nvar+1;j<nvar+n+1;j++){
-
-    cc[j] = tau*weights[j];cc[j+n] = (1-tau)*weights[j];
-
+    uint index_weight = j-nvar-1;
+    cc[j] = tau*weights[index_weight];
+    cc[j+n] = (1-tau)*weights[index_weight];
   }
 
-  arma::colvec col_one= arma::ones<arma::colvec>(n);
-  arma::mat gammax_org = x;
+  arma::colvec col_one(n);
+  col_one.fill(1.0);
+  arma::mat gammax_org = join_rows(col_one,x);
   arma::mat gammaxb = gammax_org.t();
   //b: last column in the linear programming tableau of QR;
-  arma::colvec col_zero = arma::zeros<arma::colvec>(1);
+  arma::colvec col_zero(1);
+  col_zero.fill(0.0);
   arma::colvec b = join_cols(y,col_zero);
   //flip the sign if y<0;
-  for(uint i = 0;i<n;i++){
-
-    if(y(i)<0){
-
+  for (int i = 0;i < y.n_elem; i++)
+    if (y(i) < 0)
+    {
       gammax_org.row(i) = -gammax_org.row(i);
-      b.row(i) = -b.row(i);
-
+      b(i) = -b(i);
     }
 
-  }
+    //IB: index of variables in the basic set;
+    arma::uvec IB(n,arma::fill::zeros);
+    for (uint j = 0;j < n; ++j) {
+      if (y[j] >= 0)
+        IB[j] = nvar+j+1;
+      else
+        IB[j] = nvar+n+j+1;
+    }
+
+    //transformation of the LP tableau to initialize optimization;
+    arma::rowvec cc_trans = -cc.cols(IB);
+    arma::mat gammax = join_cols(gammax_org,cc_trans*gammax_org);
+
+    //once beta is pivoted to basic set, it cannot be pivoted out;
+    arma::uvec free_var_basic(n+1,arma::fill::zeros);
+    free_var_basic[n] = 1;
+
+    //r1,r2: index of positive or negative beta in the basic set;
+    arma::uvec r1 = arma::regspace<arma::uvec>(0,nvar);
+    arma::uvec r2(nvar+1,arma::fill::zeros);
+    arma::mat rr(2, 1+nvar,arma::fill::zeros);
+
+    //tau_list:: a list of tau, automatically generated in alg;
+    vector<double> tau_list;
+
+    //c0: a vector helps to generate the next tau level;
+    arma::rowvec c0(1+nvar+2*n,arma::fill::zeros);
+    c0.subvec(nvar+1,nvar+n) = weights;
+    c0.subvec(nvar+n+1,nvar+2*n) = -weights;
 
 
-  //IB: index of variables in the basic set;
-  arma::uvec IB = arma::zeros<arma::uvec>(n);
-  for(uint j = 0;j<n;j++){
+    //terminate loop indicator;
+    bool last_flag = false;
 
-    if(y[j]>=0) IB[j] = nvar+j+1;
-    else IB[j] = nvar+n+j+1;
-
-  }
-
-  //transformation of the LP tableau to initialize optimization;
-  arma::rowvec cc_trans = -cc.cols(IB);
-  arma::mat gammax = join_cols(gammax_org,cc_trans*gammax_org);
-  //cout << gammax(gammax.n_rows-1,0) << endl;
-
-  //once beta is pivoted to basic set, it cannot be pivoted out;
-  arma::uvec free_var_basic = arma::zeros<arma::uvec>(n+1);
-  free_var_basic[n] = 1;
-
-  //r1,r2: index of positive or negative beta in the basic set;
-  arma::uvec r1 = arma::regspace<arma::uvec>(0,nvar);
-  arma::uvec r2 = arma::zeros<arma::uvec>(nvar+1);
-  arma::mat rr = arma::zeros<arma::mat>(2, 1+nvar);
-
-  //c0: a vector helps to generate the next tau level;
-  arma::rowvec c0 = arma::zeros<arma::rowvec>(1+nvar+2*n);
-  c0.subvec(nvar+1,nvar+n) = weights;
-  c0.subvec(nvar+n+1,nvar+2*n) = -weights;
-
-  // variables used in the while loop;
-  uint j = 0;
-  arma::vec estimate = arma::zeros<arma::vec>(nvar+1);
-  arma::vec u = arma::zeros<arma::vec>(n);
-  arma::vec v = arma::zeros<arma::vec>(n);
-  arma::vec pre = arma::zeros<arma::vec>(n);
-  arma::vec now = arma::zeros<arma::vec>(n);
-
-  while(j<maxit){
-    // std::cout << "j is "<< j << std::endl;
-    int tsep;
-    int t_rr;
-    double t;
-
-    if(j<nvar+1){
-      rr.row(0) = gammax.row(n);
-      for(uint i = 0;i<r2.n_elem;i++){
-        // std::cout<<"i is "<<i<<std::endl;
-        if(r2(i)==0){
-          rr(1,i) = 0;
-          rr(0,i) = -abs(rr(0,i));
-        }else{
-          rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
+    // variables used in the while loop;
+    uint j = 0;
+    int tau_t = 0;
+    arma::vec estimate(nvar+1,arma::fill::zeros);
+    arma::vec u(n,arma::fill::zeros);
+    arma::vec v(n,arma::fill::zeros);
+    arma::vec pre(n,arma::fill::zeros);
+    arma::vec now(n,arma::fill::zeros);
+    print(-1);
+    j = 0;
+    while (j < maxit) {
+      print(j);
+      int tsep;
+      int t_rr;
+      double t;
+      if(j<nvar+1) {
+        rr.row(0) = gammax.row(n);
+        for(uint i = 0;i<r2.n_elem;i++) {
+          if(r2(i)==0){
+            rr(1,i) = 0;
+            rr(0,i) = -abs(rr(0,i));
+          }else{
+            rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
+          }
         }
-      }
 
-      t_rr = j;
-      tsep = 0;
-      t = arma::as_scalar(r1(t_rr));
-    }else{
-      // print(1);
-      //cout << rr.n_cols<< endl;
-      //cout << gammax.n_cols <<endl;
-
-      rr.row(0) = gammax.row(n);
-
-      for(uint i = 0;i<r2.n_elem;i++){
-        // std::cout<<"r2i is "<<r2(i)<<std::endl;
-        if(r2(i)==0){
-          rr(1,i) = 0;
-          rr(0,i) = -abs(rr(0,i));
-        }else{
-          rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
-        }
-      }
-      // print(2);
-      if(rr.min()>-tol)
-        break;
-      int index = rr.index_min();
-      //cout << "tsep is "<< tsep << endl;
-      t_rr = index/2;
-      //cout << "t_rr is "<< t_rr << endl;
-      tsep = index % 2;
-      // cout << "tsep is "<< tsep << endl;
-
-      if(tsep==0){
-        t = r1(t_rr);
+        t_rr = j;
+        tsep = 0;
+        t = arma::as_scalar(r1(t_rr));
       }else{
-        t = r2(t_rr);
-      }
-    }
+        rr.row(0) = gammax.row(n);
+        for(uint i = 0;i<r2.n_elem;i++) {
+          if(r2(i)==0){
+            rr(1,i) = 0;
+            rr(0,i) = -abs(rr(0,i));
+          }else{
+            rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
+          }
+        }
 
-    // std::cout<<"DONE3"<<std::endl;
-    int k_index;
-    arma::vec yy;
-    if (r2(t_rr)!=0){
-      if(tsep==0){
+        if(rr.min()>-tol)
+          break;
+        int index = rr.index_min();
+        t_rr = index / 2;
+        tsep = index % 2;
+        // t_rr = floor(tsep/2);
+        // tsep = tsep-floor(tsep/2)*2;
+
+        if(tsep==0) {
+          t = r1(t_rr);
+        }else{
+          t = r2(t_rr);
+        }
+      }
+      print(-2);
+      int k_index;
+      arma::vec yy; // (gammax.n_rows, )
+      arma::vec k;
+      if (r2(t_rr)!=0) {
+        if(tsep==0) {
+          yy = gammax.col(t_rr);
+        }else{
+          yy = -gammax.col(t_rr);
+        }
+
+        k = b/yy; // gammax.n_rows
+        arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
+        k(nokeep) = rep_cpp(INFINITY, nokeep.n_elem).t();
+        k_index = k.index_min();
+
+        if(tsep!=0) {
+          yy(n) = yy(n) + weights(r2[t_rr] - (1+nvar+n));
+        }
+      } else {
         yy = gammax.col(t_rr);
+        if (yy(n) < 0) {
+          k = b/yy; // gammax.n_rows
+          arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
+          k(nokeep) = rep_cpp(INFINITY, nokeep.n_elem).t();
+          k_index = k.index_min();
+        } else {
+          k = -b/yy; // gammax.n_rows
+          arma::uvec nokeep = arma::find(yy>=-eps || free_var_basic==1);
+          k(nokeep) = rep_cpp(INFINITY, nokeep.n_elem).t();
+          k_index = k.index_min();
+        }
+
+        free_var_basic(k_index) = 1;
+      }
+      if(k.min()==INFINITY) break;
+      print(-3);
+
+      arma::vec ee = yy/yy(k_index);
+      ee(k_index) = 1-1/yy(k_index);
+
+      // cout <<"IB(k_index) is "<<IB(k_index)<<endl;
+      // cout <<"k_index is "<<k_index<<endl;
+      if(IB(k_index)<=nvar+n){
+        gammax.col(t_rr) = rep_cpp(0, gammax.n_rows).t();
+        gammax(k_index,t_rr) = 1;
+        r1(t_rr) = IB(k_index);
+        r2(t_rr) = IB(k_index) + n;
       }else{
-        yy = -gammax.col(t_rr);
+        gammax.col(t_rr) = rep_cpp(0, gammax.n_rows).t();
+        gammax(k_index,t_rr) = -1;
+        gammax(n,t_rr)  =  weights(IB[k_index] - (1+nvar+n));
+        r1(t_rr) = IB(k_index) - n;
+        r2(t_rr) = IB(k_index);
       }
 
-      arma::vec k = b/yy;
-      arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
-      k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
-      k_index = k.index_min();
+      gammax = gammax - ee * gammax.row(k_index);
+      b = b - ee * arma::as_scalar(b[k_index]);
+      IB(k_index) = t;
+      //cout << "t is " << t << endl;
 
-      if(tsep!=0){
-        yy(n) = yy(n)+weights(r2[t_rr]-(1+nvar+n));
-      }
-
-      // std::cout<<"min k is "<<k.min()<<std::endl;
-
-    }else{
-      //cout << t_rr<< endl;
-      yy = gammax.col(t_rr);
-      // if (abs(yy(n)) < 1e-10) {
-      //   cout << "eps found!!!" << endl;
-      // }
-      if(yy(n)<0){
-
-        arma::vec k = b/yy;
-        arma::uvec nokeep = arma::find(yy<=0 || free_var_basic==1);
-        k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
-        k_index = k.index_min();
-
-      }else{
-        arma::vec k = -b/yy;
-        arma::uvec nokeep = arma::find(yy>=0 || free_var_basic==1);
-        k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
-        k_index = k.index_min();
-      }
-      // std::cout<<"min k is "<<k.min()<<std::endl;
-      free_var_basic(k_index) = 1;
+      j++;
     }
-    // print(3);
-    arma::vec ee = yy/yy(k_index);
-    ee(k_index) = 1-1/yy(k_index);
 
-    // std::cout <<"IB(k_index) is "<<IB(k_index)<<std::endl;
-    // std::cout <<"free_var_basic(k_index) is "<<free_var_basic(k_index)<<std::endl;
-    // cout <<"k_index is "<<k_index<<endl;
-    if(IB(k_index)<=nvar+n){
-      gammax.col(t_rr) = rep_cpp(0,gammax.n_rows).t();
-      gammax(k_index,t_rr) = 1;
-      r1(t_rr) = IB(k_index);
-      r2(t_rr) = IB(k_index)+n;
-    }else{
-      gammax.col(t_rr) = rep_cpp(0,gammax.n_rows).t();
-      gammax(k_index,t_rr) = -1;
-      gammax(n,t_rr)  =  weights(IB[k_index]-(1+nvar+n));
-      r1(t_rr) = IB(k_index)-n;
-      r2(t_rr) = IB(k_index);
-    }
-    // std::cout <<"r2(t_rr) is "<<r2(t_rr)<<std::endl;
-    gammax = gammax-ee*gammax.row(k_index);
-    b = b-ee*arma::as_scalar(b[k_index]);
-    IB(k_index) = t;
-    //cout << "t is " << t << endl;
-    // std::cout<<"DONE2"<<std::endl;
-    j++;
-  }
 
   if(j==maxit){
 
@@ -395,6 +388,8 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
   residual.zeros();
   residual(sort(index_temp-nvar-1)) = res_temp;
   // print_leave();
+
+  print_leave();
 
 #ifdef DEBUG
   ProfilerStop();
@@ -619,6 +614,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
         // std::cout<<"DONE3"<<std::endl;
         int k_index;
         arma::vec yy;
+        arma::vec k;
         if (r2(t_rr)!=0){
           if(tsep==0){
             yy = gammax.col(t_rr);
@@ -626,7 +622,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
             yy = -gammax.col(t_rr);
           }
 
-          arma::vec k = b/yy;
+          k = b/yy;
           arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
           k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
           k_index = k.index_min();
@@ -645,13 +641,13 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
           // }
           if(yy(n)<0){
 
-            arma::vec k = b/yy;
+            k = b/yy;
             arma::uvec nokeep = arma::find(yy<=0 || free_var_basic==1);
             k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
             k_index = k.index_min();
 
           }else{
-            arma::vec k = -b/yy;
+            k = -b/yy;
             arma::uvec nokeep = arma::find(yy>=0 || free_var_basic==1);
             k(nokeep) = rep_cpp(INFINITY,nokeep.n_elem).t();
             k_index = k.index_min();
@@ -659,6 +655,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
           // std::cout<<"min k is "<<k.min()<<std::endl;
           free_var_basic(k_index) = 1;
         }
+        if(k.min()==INFINITY) break;
         // print(3);
         arma::vec ee = yy/yy(k_index);
         ee(k_index) = 1-1/yy(k_index);
