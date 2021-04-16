@@ -168,7 +168,7 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
   ProfilerStart("tau.prof");
 #endif
 
-  print_enter("simplex:");
+  // print_enter("simplex:");
   //n: number of obs;
   uint n = x.n_rows;
 
@@ -241,10 +241,10 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
     arma::vec v(n,arma::fill::zeros);
     arma::vec pre(n,arma::fill::zeros);
     arma::vec now(n,arma::fill::zeros);
-    print(-1);
+    // print(-1);
     j = 0;
     while (j < maxit) {
-      print(j);
+      // print(j);
       int tsep;
       int t_rr;
       double t;
@@ -287,7 +287,7 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
           t = r2(t_rr);
         }
       }
-      print(-2);
+      // print(-2);
       int k_index;
       arma::vec yy; // (gammax.n_rows, )
       arma::vec k;
@@ -323,7 +323,7 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
         free_var_basic(k_index) = 1;
       }
       if(k.min()==INFINITY) break;
-      print(-3);
+      // print(-3);
 
       arma::vec ee = yy/yy(k_index);
       ee(k_index) = 1-1/yy(k_index);
@@ -389,7 +389,6 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
   residual(sort(index_temp-nvar-1)) = res_temp;
   // print_leave();
 
-  print_leave();
 
 #ifdef DEBUG
   ProfilerStop();
