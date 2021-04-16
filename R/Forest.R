@@ -113,7 +113,7 @@ CQRforest <- function(matY,delta,matZ = NULL,matX, control = list()) {
 #' @importFrom randomForestSRC rfsrc
 #'
 #'
-CensQRforest <- function(matY,delta,matZ = NULL,matX,
+CensQRforest <- function(matY,delta,matZ = NULL,matX,newdata,
                          control = list()) {
 
   control <- CQRforest.control(control)
@@ -140,7 +140,7 @@ CensQRforest <- function(matY,delta,matZ = NULL,matX,
   .p <- ncol(.X)
   .n <- length(matY)
   .data_temp_censor = as.data.frame(cbind(matY,delta,matX,matZ))
-  names(.data_temp_censor)[1:2] = c("time","status")
+  names(.data_temp_censor) = c("time","status",namex,namez)
   if(is.null(matZ))  matZ = matrix(1,nrow = 1,ncol = .n)
   .Z0 <- matZ
   .X0 <- apply(.X,2,order)
@@ -157,32 +157,34 @@ CensQRforest <- function(matY,delta,matZ = NULL,matX,
   rfsrc_sim_surv = cbind(1,predict_rfsrc$survival)
 
   time_interest = predict_rfsrc$time.interest
-  time_censor = data_temp_censor$time[data_temp_censor$status==0]
+  time_censor = .data_temp_censor$time[.data_temp_censor$status==0]
   F_est = sapply(1:length(time_censor),function(i)
-    1-rfsrc_sim_surv[data_temp_censor$status==0,][i,
+    1-rfsrc_sim_surv[.data_temp_censor$status==0,][i,
                                        sum(time_interest<=time_censor[i])+1],
     simplify = T)
 
   weight_censor = ifelse(F_est>=tau,1,(tau-F_est)/(1-F_est))
 
-  data_surv = data.frame(rbind(data_temp_censor[data_temp_censor$status==0,],
-                               data_temp_censor[data_temp_censor$status==1,],
-                               data.frame(time = 100*max(data_temp_censor$time),
-                                          data_temp_censor[data_temp_censor$status==0,-1])),
-                         id = c(1:nrow(data_temp_censor),1:sum(data_temp_censor$status==0)))
-  data_surv = data.frame(data_surv,
-                         weight = c(weight_censor,rep(1,sum(data_temp_censor$status==1)),1-weight_censor))
+  .data_surv = data.frame(rbind(.data_temp_censor[.data_temp_censor$status==0,],
+                               .data_temp_censor[.data_temp_censor$status==1,],
+                               data.frame(time = 100*max(.data_temp_censor$time),
+                                          .data_temp_censor[.data_temp_censor$status==0,-1])),
+                         id = c(1:nrow(.data_temp_censor),1:sum(.data_temp_censor$status==0)))
+  .data_surv = data.frame(.data_surv,
+                         weight = c(weight_censor,rep(1,sum(.data_temp_censor$status==1)),1-weight_censor))
 
-  .Z0 = as.matrix(as.double(data_surv$z))
-  .X0 = as.matrix(data_surv[,namex])
-  .Y0 = as.matrix(data_surv$time)
-  delta = as.matrix(data_surv$status)[1:nrow(data_temp_censor),]
-  weight_censor = matrix(data_surv$weight,nrow = 1)
-  weight_rf = matrix(rep(1,nrow(data_surv)),ncol = 1)
+  .Z0 = as.matrix(.data_surv[,namez,drop = FALSE])
+  .X0 = as.matrix(.data_surv[,namex,drop = FALSE])
+  print(ncol(.X0))
+  .Y0 = as.matrix(.data_surv$time)
+  .Xnew = as.matrix(newdata)
+  delta = as.matrix(.data_surv$status)[1:.n,]
+  weight_censor = matrix(.data_surv$weight,nrow = 1)
+  weight_rf = matrix(rep(1,nrow(.data_surv)),ncol = 1)
 
   print("DONE")
 
-  out <- CenQRForest_WW_C(.Z0,.X0,.Y0,delta = delta,
+  out <- CenQRForest_WW_C(.Z0,.X0,.Y0,.Xnew,delta = delta,
                           tau = tau,
                           weight_rf = weight_rf,
                           weight_censor = weight_censor,
