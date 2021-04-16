@@ -49,6 +49,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// CenQRForest_WW_C
+SEXP CenQRForest_WW_C(const arma::mat& matZ0, const arma::mat& matX0, const arma::vec& matY0, const arma::mat& matXnew, const arma::uvec& delta, const double& tau, const arma::vec& weight_rf, const arma::rowvec& weight_censor, const arma::vec& quantile_level, int numTree, int minSplit1, int maxNode, int mtry);
+RcppExport SEXP _rf_CenQRForest_WW_C(SEXP matZ0SEXP, SEXP matX0SEXP, SEXP matY0SEXP, SEXP matXnewSEXP, SEXP deltaSEXP, SEXP tauSEXP, SEXP weight_rfSEXP, SEXP weight_censorSEXP, SEXP quantile_levelSEXP, SEXP numTreeSEXP, SEXP minSplit1SEXP, SEXP maxNodeSEXP, SEXP mtrySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type matZ0(matZ0SEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type matX0(matX0SEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type matY0(matY0SEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type matXnew(matXnewSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type delta(deltaSEXP);
+    Rcpp::traits::input_parameter< const double& >::type tau(tauSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type weight_rf(weight_rfSEXP);
+    Rcpp::traits::input_parameter< const arma::rowvec& >::type weight_censor(weight_censorSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type quantile_level(quantile_levelSEXP);
+    Rcpp::traits::input_parameter< int >::type numTree(numTreeSEXP);
+    Rcpp::traits::input_parameter< int >::type minSplit1(minSplit1SEXP);
+    Rcpp::traits::input_parameter< int >::type maxNode(maxNodeSEXP);
+    Rcpp::traits::input_parameter< int >::type mtry(mtrySEXP);
+    rcpp_result_gen = Rcpp::wrap(CenQRForest_WW_C(matZ0, matX0, matY0, matXnew, delta, tau, weight_rf, weight_censor, quantile_level, numTree, minSplit1, maxNode, mtry));
+    return rcpp_result_gen;
+END_RCPP
+}
 // qr_tau_para_diff_cpp
 List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::rowvec weights, const arma::colvec taurange, const double tau_min, const double tol, const uint maxit, const uint max_num_tau, const bool use_residual);
 RcppExport SEXP _rf_qr_tau_para_diff_cpp(SEXP xSEXP, SEXP ySEXP, SEXP weightsSEXP, SEXP taurangeSEXP, SEXP tau_minSEXP, SEXP tolSEXP, SEXP maxitSEXP, SEXP max_num_tauSEXP, SEXP use_residualSEXP) {
@@ -72,6 +95,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_rf_CenQRForest_C", (DL_FUNC) &_rf_CenQRForest_C, 13},
     {"_rf_QPRForest_C", (DL_FUNC) &_rf_QPRForest_C, 10},
+    {"_rf_CenQRForest_WW_C", (DL_FUNC) &_rf_CenQRForest_WW_C, 13},
     {"_rf_qr_tau_para_diff_cpp", (DL_FUNC) &_rf_qr_tau_para_diff_cpp, 9},
     {NULL, NULL, 0}
 };
