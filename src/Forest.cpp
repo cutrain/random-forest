@@ -737,7 +737,7 @@ split_info Forest::find_split_generalized_WW(uint nd,
                                              const arma::rowvec& weight_censor,
                                              const arma::field<arma::uvec>& nodeSample,
                                              const arma::vec& quantile_level)const {
-  print_enter("find_split:");
+  // print_enter("find_split:");
   arma::mat nodeSampleX = matX.rows(nodeSample(nd));
   arma::mat nodeSampleY = matY.rows(nodeSample(nd));
   arma::mat nodeSampleZ = matZ.rows(nodeSample(nd));
@@ -754,20 +754,20 @@ split_info Forest::find_split_generalized_WW(uint nd,
   arma::vec est_beta = arma::zeros<arma::vec>(n_Z+1);
 
   quantreg qr(tau);
-  print(0);
+  // print(0);
   qr.qr_tau_para_diff_fix_cpp(nodeSampleZ,nodeSampleY,
                               node_weight_censor,tau,est_beta,
                               residual,1e-14,100000);
 
-  print(1);
+  // print(1);
   arma::mat gradient = arma::zeros<arma::mat>(n_obs,n_Z+1);
   arma::vec col_ones = arma::ones<arma::vec>(n_obs);
   arma::mat design_nodeSampleZ = arma::join_rows(col_ones,nodeSampleZ);
   for(uint i = 0;i<n_obs;i++){
     if(residual(i)<=0){
-      gradient.row(i) = design_nodeSampleZ.row(i)*(tau-1);
+      gradient.row(i) = design_nodeSampleZ.row(i)*(tau-1)*node_weight_censor(i);
     }else{
-      gradient.row(i) = design_nodeSampleZ.row(i)*tau;
+      gradient.row(i) = design_nodeSampleZ.row(i)*tau*node_weight_censor(i);
     }
   }
 
@@ -775,7 +775,7 @@ split_info Forest::find_split_generalized_WW(uint nd,
   sp_info.status = -1;
 
 
-  print(2);
+  // print(2);
   uint varsp = 0;
   double cutsp = 0.0;
   if(arma::rank(nodeSampleZ)<n_Z){
@@ -824,8 +824,8 @@ split_info Forest::find_split_generalized_WW(uint nd,
         }
       }
     }
-    print(3);
-    print_leave();
+    // print(3);
+    // print_leave();
     sp_info.status = 1;
     sp_info.varsp = varsp;
     sp_info.cutsp = cutsp;
@@ -851,7 +851,7 @@ uint Forest::split_general_WW(const arma::mat& matZ,
                               uint& countsp,
                               uint& ndcount,
                               const arma::vec& quantile_level) const {
-  print_enter("quantreg:");
+  // print_enter("quantreg:");
   uint end = 0;
   int status = -1;
   uint varsp = 0;
@@ -860,7 +860,7 @@ uint Forest::split_general_WW(const arma::mat& matZ,
   uint n_obs = matX.n_rows;
   uint ndc1 = 0;
   uint ndc2 = 0;
-  print(0);
+  // print(0);
   while(status==-1 && countsp<=ndcount){
     nd = countsp;
     split_info best_split = find_split_generalized_WW(nd,matZ,matX,matY,
@@ -880,7 +880,7 @@ uint Forest::split_general_WW(const arma::mat& matZ,
       }
     }
   }
-  print(1);
+  // print(1);
   if (status != -1){
     split_vars(nd) = varsp;
     split_values(nd) = cutsp;
@@ -912,8 +912,8 @@ uint Forest::split_general_WW(const arma::mat& matZ,
   }else{
     end = 1;
   }
-  print(2);
-  print_leave();
+  // print(2);
+  // print_leave();
   // std::cout<< "ndcount is "<<ndcount<<std::endl;
   // std::cout<< "countsp is "<<countsp<<std::endl;
   return end;
@@ -999,6 +999,12 @@ int Forest::trainRF(std::vector<std::shared_ptr<Tree> >& trees,
     arma::uvec index_cens = find(delta(ids.col(i))==0);
     arma::uvec index_join = id_temp(index_cens)+delta.n_elem;
     arma::uvec id_i = arma::join_cols(id_temp,index_join);
+    // std::cout<<"row X is "<<matX.n_rows<<std::endl;
+    // std::cout<<"row Z is "<<matZ.n_rows<<std::endl;
+    // std::cout<<"row Y is "<<matY.n_rows<<std::endl;
+    // std::cout<<"length weight_rf is "<<weight_rf.n_elem;
+    // std::cout<<"length weight_censor is "<<weight_censor.n_elem;
+    print(-2);
     trees.push_back(train_tree(matZ.rows( id_i ),
                                matX.rows( id_i ),
                                matY( id_i ),
@@ -1009,3 +1015,4 @@ int Forest::trainRF(std::vector<std::shared_ptr<Tree> >& trees,
   print_leave();
   return 1;
 }
+
