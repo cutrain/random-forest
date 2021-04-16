@@ -167,7 +167,7 @@ SEXP QPRForest_C(const arma::mat& matZ0,
   arma::umat id2 = ids0;
   //ids.rows( arma::regspace<arma::uvec>(0, n-1)  );
 
-  ForestPrediction fp(matX0,matX0, id2, trees);
+  ForestPrediction fp(matX0, matX0, matY0,matZ0,id2,taurange(1), trees);
   return Rcpp::List::create(Rcpp::Named("trees") = treeList,
                             Rcpp::Named("split_values") = tree_split,
                             Rcpp::Named("subsample.id") = id2,
@@ -181,6 +181,7 @@ SEXP QPRForest_C(const arma::mat& matZ0,
 SEXP CenQRForest_WW_C(const arma::mat& matZ0,
                       const arma::mat& matX0,
                       const arma::vec& matY0,
+                      const arma::mat& matXnew,
                       const arma::uvec& delta,
                       const double& tau,
                       const arma::vec& weight_rf,
@@ -195,33 +196,33 @@ SEXP CenQRForest_WW_C(const arma::mat& matZ0,
   int N = delta.n_elem;
   int n1 = ceil(N*0.8);
   std::vector<std::shared_ptr<Tree> > trees;
-  print(1);
+  // print(1);
   trees.reserve(numTree);
-  print(2);
+  // print(2);
   print("numtree=");
   print(numTree);
   Forest ff(numTree,maxNode,minSplit1,mtry);
-  print(3);
+  // print(3);
   //arma::umat ids(n, numTree);
   arma::umat ids0 = arma::zeros<arma::umat>(n1, numTree);
   ff.sampleWithoutReplacementSplit(N, n1, ids0);
-  print(4);
+  // print(4);
   // bootstrap
   // ff.sampleWithReplacementSplit(n, n, ids0);
 
-  print(5);
+  // print(5);
   ff.trainRF(trees,matZ0,matX0,matY0,delta,tau,weight_rf,weight_censor,
              quantile_level,ids0);
-  print(6);
+  // print(6);
   arma::field<arma::umat> treeList(numTree);
   arma::field<arma::mat> tree_split(numTree);
   std::vector<std::shared_ptr<Tree> >::const_iterator it;
   int i = 0;
 
-  print(7);
-  print_enter("loop:");
+  // print(7);
+  print_enter("tree:");
   for(it = trees.begin(); it != trees.end(); it++, i++) {
-    std::cout<<"tree "<<i<<std::endl;
+    print(i);
     std::shared_ptr<Tree> tt = *it;
     shared_ptr<arma::vec> vars0 = tt->get_split_vars();
     // std::cout << "vars0=" << vars0->n_elem << std::endl;
@@ -240,7 +241,7 @@ SEXP CenQRForest_WW_C(const arma::mat& matZ0,
     tree_split(i) = treeMat_split;
   }
   print_leave();
-  print(8);
+  // print(8);
   // use subsampling observations
   arma::umat id2 = ids0;
   //ids.rows( arma::regspace<arma::uvec>(0, n-1)  );
@@ -248,16 +249,21 @@ SEXP CenQRForest_WW_C(const arma::mat& matZ0,
   // arma::mat weights = getWeights(matX0.rows(arma::span(0,(N-1))),
   //                                matX0.rows(arma::span(0,(N-1))),id2,
   //                                trees);
-  print(9);
-  ForestPrediction fp(matX0.rows(arma::span(0,(N-1))),
-                      matX0.rows(arma::span(0,(N-1))),id2,trees);
-  print(10);
+  // print(9);
+  ForestPrediction fp(matXnew,
+                      matX0.rows(arma::span(0,(N-1))),
+                      matY0.rows(arma::span(0,(N-1))),
+                      matZ0.rows(arma::span(0,(N-1))),
+                      id2,
+                      tau,trees);
+  // print(10);
   return Rcpp::List::create(Rcpp::Named("trees") = treeList,
                             Rcpp::Named("split_values") = tree_split,
                             Rcpp::Named("subsample.id") = id2,
                             Rcpp::Named("nodeLabel") = fp.get_nodeLabel(),
                             Rcpp::Named("nodeSize") = fp.get_nodeSize(),
                             Rcpp::Named("nodeMap") = fp.get_nodeMap(),
-                            Rcpp::Named("weights") = fp.get_weights());
+                            Rcpp::Named("weights") = fp.get_weights(),
+                            Rcpp::Named("estimate") = fp.get_estimate());
 
 }
