@@ -46,5 +46,73 @@ censor_forest = .Call('_rf_CenQRForest_WW_C', PACKAGE = 'rf',
                       weight_censor = weight_censor,
                       quantile_level = as.matrix(seq(0,1,length.out = 50)[2:49]),
                       numTree = 500,minSplit1 = 8,maxNode = 500,
-                      mtry = min(ceiling(sqrt(length(namex)) + 20), length(namex)-1))
+                      mtry = min(ceiling(sqrt(length(namex)) + 20),
+                                 length(namex)-1))
 
+#######################################################################
+####### Quantile Process Regression Forest with rankscore Split #######
+#######################################################################
+rm(list = ls())
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+load("exampledataQPRF.RData")
+
+Z = as.matrix(train[,control.z])
+Y = as.matrix(train[,namey])
+X = as.matrix(train[,namex])
+
+N_test = round(200^(1/2))^2
+X_test = matrix(c(rep(seq(0.05,0.95,length.out = round(200^(1/2))),
+                      each = round(200^(1/2))),
+                  rep(seq(0.05,0.95,length.out = round(200^(1/2))),
+                      times = round(200^(1/2))),
+                  runif((d-2)*N_test,0,1)),ncol = d)
+
+set.seed(taskid)
+QPR_forest = .Call('_rf_QPRForest_C', PACKAGE = 'rf',
+                      Z,X,Y,X_test,taurange = c(0,1),
+                      quantile_level = as.matrix(seq(0,1,length.out = 50)[2:49]),
+                      max_num_tau = 2*10^3,numTree = 500,
+                      minSplit1 = 8,maxNode = 500,
+                      mtry = min(ceiling(sqrt(length(namex)) + 20),
+                                 length(namex)-1))
+
+mu_beta_test1 = (1+1/(1+exp(-20*(X_test[,1]-1/2))))*
+  (1+1/(1+exp(-20*(X_test[,2]-1/2))))
+mu_beta_test2 = (1+1/(1+exp(-20*(X_test[,1]-1/2))))*
+  (1+1/(1+exp(-20*(X_test[,3]-1/2))))
+mu_beta_test3 = (1+1/(1+exp(-20*(X_test[,2]-1/2))))*
+  (1+1/(1+exp(-20*(X_test[,3]-1/2))))
+
+beta_tau_test1 = beta_tau(mu_beta_test1,(1:99)/100,
+                          quantile(mu_beta1,0.5))
+beta_tau_test2 = beta_tau(mu_beta_test2,(1:99)/100,
+                          quantile(mu_beta2,0.5))
+beta_tau_test3 = beta_tau(mu_beta_test3,(1:99)/100,
+                          quantile(mu_beta3,0.5))
+
+bias1 = NULL
+bias2 = NULL
+bias3 = NULL
+for(i in 1:nrow(X_test)){
+  
+  bias1 = c(bias,mean((QPR_forest$estimate[[i]][-100,2]-
+                        beta_tau_test1[i,])/beta_tau_test1[i,]))
+  bias2 = c(bias,mean((QPR_forest$estimate[[i]][-100,3]-
+                         beta_tau_test2[i,])/beta_tau_test2[i,]))
+  bias3 = c(bias,mean((QPR_forest$estimate[[i]][-100,4]-
+                         beta_tau_test3[i,])/beta_tau_test3[i,]))
+  
+}
+
+
+# data_est = data.frame(y = Y,z = Z,
+#                       weights = censor_forest$weights[1,])
+# qr_R = rq(y~z,data = data_est,weights = weights,tau = -1)
+# 
+# qr_tau_cpp_est =.Call('_rf_qr_tau_para_diff_cpp', 
+#                       PACKAGE = 'rf', Z, Y, 
+#                       weights = censor_forest$weights[1,], 
+#                       taurange = c(0,1),tau_min = 1e-10,
+#                       tol = 1e-14,maxit = 100000, 
+#                       max_num_tau = 1000,
+#                       use_residual = T)
