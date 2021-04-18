@@ -12,6 +12,7 @@
 /*new*/
 #include <utility>
 #include <set>
+#include <cfloat>
 #ifdef DEBUG
 #include <cstdio>
 #include <fstream>
