@@ -65,6 +65,14 @@ public:
               const arma::vec& quantile_level,
               uint max_num_tau,
               const arma::umat& ids);
+  
+  int trainRF(std::vector<std::shared_ptr<Tree> >& trees,
+              const arma::mat& matX,
+              const arma::mat& matY,
+              const arma::vec& taurange,
+              const arma::vec& quantile_level,
+              uint max_num_tau,
+              const arma::umat& ids);
 
   int trainRF(std::vector<std::shared_ptr<Tree> >& trees,
               const arma::mat& matZ,
@@ -90,6 +98,12 @@ public:
 
   std::shared_ptr<Tree> train_tree(const arma::mat& matZ,
                                    const arma::mat& matX,
+                                   const arma::mat& matY,
+                                   const arma::vec& taurange,
+                                   const arma::vec& quantile_level,
+                                   uint max_num_tau) const;
+  
+  std::shared_ptr<Tree> train_tree(const arma::mat& matX,
                                    const arma::mat& matY,
                                    const arma::vec& taurange,
                                    const arma::vec& quantile_level,
@@ -207,7 +221,29 @@ public:
                                  const arma::field<arma::uvec>& nodeSample,
                                  const arma::vec& quantile_level,
                                  uint max_num_tau) const;
-
+  
+  
+  split_info find_split_rankscore_marginal(arma::uword nd,
+                                           const arma::mat& matX,
+                                           const arma::mat& matY,
+                                           const arma::vec& taurange,
+                                           const arma::field<arma::uvec>& nodeSample,
+                                           const arma::vec& quantile_level,
+                                           uint max_num_tau) const;
+  
+  uint split_rankscore_marginal(const arma::mat& matX,
+                                const arma::mat& matY,
+                                const arma::vec& taurange,
+                                arma::field<arma::uvec>& nodeSample,
+                                arma::uvec& isLeaf,
+                                arma::vec& split_vars,
+                                arma::vec& split_values,
+                                arma::uvec& left_childs,
+                                arma::uvec& right_childs,
+                                uint& countsp,
+                                uint& ndcount,
+                                const arma::vec& quantile_level,
+                                uint max_num_tau) const;
 
 
 
