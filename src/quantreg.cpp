@@ -534,7 +534,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
               r0j(g+gammax.n_cols) = weights(r1(g)-(1+nvar))+r0j(g+gammax.n_cols);
             } 
           }
-        print(-6);
+        // print(-6);
         arma::rowvec theta = r0j/r1j;
         bool choose = false;
         double theta_min = 0;
@@ -545,7 +545,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
             theta_min = theta[i];
           }
           // double theta_min = arma::as_scalar(theta.cols(find(r1j>0)).min());
-          print(-7);
+          // print(-7);
           tau = tau + theta_min + tau_min;
 
           if(tau>taurange[1]){
@@ -563,7 +563,7 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
           gammax.row(n) = rep_cpp(tau,nvar+1)-
             cc.cols(IB)*gammax(arma::span(0,n-1),arma::span::all);
       }
-      print(-2);
+      // print(-2);
       j = 0;
       while(j<maxit){
         // std::cout << "j is "<< j << std::endl;
@@ -785,7 +785,7 @@ arma::vec quantreg::ranks_cpp(const arma::vec& matY,
                          uint max_num_tau) const{
 
   // quantreg qr(taurange);
-  print_enter("ranks:");
+  // print_enter("ranks:");
   uint n_Z = matZ.n_cols;
   uint n = matY.n_elem;
   // std::cout<<"n is "<<n<<std::endl;
@@ -801,10 +801,10 @@ arma::vec quantreg::ranks_cpp(const arma::vec& matY,
 
   //tau_list:: a list of tau, automatically generated in alg;
   vector<double> tau_list;
-  print(0);
+  // print(0);
   qr_tau_para_diff_cpp(matZ,matY,weights,taurange,est_beta,dual_sol,
                        tau_list,1e-10,1e-14,100000,max_num_tau);
-  print(1);
+  // print(1);
   uint J = tau_list.size();
 
 
@@ -824,11 +824,42 @@ arma::vec quantreg::ranks_cpp(const arma::vec& matY,
   dphi = phi(arma::span(1,J-1))-phi(arma::span(0,J-2));
 
   ranks = dual_sol*(dphi/dt);
-  print_leave();
+  // print_leave();
 
   return ranks;
 
 
+}
+
+arma::vec quantreg::ranks_cpp_marginal(const arma::vec& matY) const
+{
+  
+  // quantreg qr(taurange);
+  // print_enter("ranks:");
+  uint n = matY.n_elem;
+  // std::cout<<"n is "<<n<<std::endl;
+  arma::vec ranks = arma::zeros<arma::vec>(n);
+  
+  // std::cout<<"A2 is "<<A2<<std::endl;
+  arma::vec phi = arma::zeros<arma::vec>(n+1);
+  double dt = (double) 1/n;
+  for(uint i = 1;i<n;i++){
+    // std::cout<<"tau_i is "<<tau_list.at(i)<<std::endl;
+    double tau_temp = (double) i/n;
+    phi(i) = 0.5*tau_temp*(1-tau_temp);
+  }
+  // std::cout<<"J is "<<J<<std::endl;
+  arma::vec dphi = phi(arma::span(1,n))-phi(arma::span(0,n-1));
+  
+  arma::uvec ranks_Y = arma::sort_index(arma::sort_index(matY));
+  
+  ranks = dphi/dt;
+  ranks = -ranks(ranks_Y);
+  // print_leave();
+  
+  return ranks;
+  
+  
 }
 
 
@@ -848,13 +879,13 @@ double quantreg::rankscore_cpp(const arma::mat& matX,
   arma::colvec col_one = arma::ones<arma::colvec>(n);
   arma::mat design_Z = join_rows(col_one,matZ);
   arma::mat design_X = join_rows(col_one,matX);
-  arma::mat matZ_new = matZ.t()*matZ;
+  arma::mat matZ_new = design_X.t()*design_X;
   arma::mat proj_Z = arma::zeros<arma::mat>(n,n);
   try{
-    proj_Z = matZ*arma::inv(matZ_new)*matZ.t();
+    proj_Z = design_X*arma::inv(matZ_new)*design_X.t();
   }
   catch(const std::runtime_error& error){
-    proj_Z = matZ*arma::pinv(matZ_new)*matZ.t();
+    proj_Z = design_X*arma::pinv(matZ_new)*design_X.t();
   }
 
   arma::mat sn = (design_X.t()-design_X.t()*proj_Z)*ranks;
@@ -875,4 +906,36 @@ double quantreg::rankscore_cpp(const arma::mat& matX,
 
   return Tn;
 
+}
+
+double quantreg::rankscore_cpp_marginal(const arma::mat& matX,
+                                        const arma::vec& ranks) const
+  {
+  
+  double A2 = 1.0/12.0;
+  uint n = matX.n_elem;
+  
+  arma::colvec col_one = arma::ones<arma::colvec>(n);
+  arma::mat design_X = join_rows(col_one,matX);
+  arma::mat proj_Z = arma::ones<arma::mat>(n,n)/(double) n;
+
+  
+  arma::mat sn = (design_X.t()-design_X.t()*proj_Z)*ranks;
+  arma::mat Qn = (design_X.t()-design_X.t()*proj_Z)*design_X;
+  
+  double Tn = 0.0;
+  arma::vec col_one_qn = arma::ones<arma::vec>(Qn.n_cols);
+  arma::mat Qn_iv = arma::zeros<arma::mat>(Qn.n_cols,Qn.n_cols);
+  // std::cout<<"DONE2"<<std::endl;
+  try{
+    Qn_iv = arma::solve(Qn,arma::diagmat(col_one_qn));
+  }
+  catch(const std::runtime_error& error){
+    Qn_iv = arma::pinv(Qn);
+  }
+  
+  Tn = arma::as_scalar(sn.t()*Qn_iv*sn)/A2;
+  
+  return Tn;
+  
 }

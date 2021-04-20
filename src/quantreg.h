@@ -89,13 +89,18 @@ public:
                  const arma::rowvec& weights,
                  const arma::vec& taurange,
                  uint max_num_tau) const;
-
+  
+  arma::vec ranks_cpp_marginal(const arma::vec& matY) const;
+  
   double rankscore_cpp(const arma::mat& matX,
                        const arma::mat& matZ,
                        const arma::rowvec& weights,
                        const arma::vec& taurange,
                        const arma::vec& ranks,
                        uint max_num_tau) const;
+  
+  double rankscore_cpp_marginal(const arma::mat& matX,
+                                const arma::vec& ranks) const;
 
   double TAU;
   arma::vec taurange;
