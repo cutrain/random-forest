@@ -45,8 +45,6 @@ public:
 
   arma::rowvec rep_cpp(double num,uint times) const;
 
-  arma::vec in_cpp(const arma::vec &a, const arma::uvec &b) const;
-
   void in(uint us,
           uint ue,
           uint vs,

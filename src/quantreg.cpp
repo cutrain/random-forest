@@ -71,27 +71,13 @@ double quantreg::KM_fun(const double& time, const arma::vec& matY, const arma::v
 // @param times an integer-valued number of times to repeat num;
 arma::rowvec quantreg::rep_cpp(double num,uint times) const{
   arma::rowvec result(times);
-  for(uint i = 0;i<times;i++){
-    result(i) = num;
-  }
-  return move(result);
+  result.fill(num);
+  return result;
 }
 
 
 // a function which returns a binary vector indicating if
 //there is a match or not in vector a for vector b;
-arma::vec quantreg::in_cpp(const arma::vec &a, const arma::uvec &b) const{
-  arma::vec result = arma::zeros<arma::vec>(a.n_elem);
-  for(uint i = 0;i<a.n_elem;i++){
-    if(sum(b.elem(find(b==a(i))))!=0){
-      result(i) = 1;
-    }else{
-      result(i) = 0;
-    }
-  }
-  return move(result);
-}
-
 void quantreg::in(uint us,
                   uint ue,
                   uint vs,
@@ -164,9 +150,6 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
                                         double tol,
                                         uint maxit) const{
 
-#ifdef DEBUG
-  ProfilerStart("tau.prof");
-#endif
 
   // print_enter("simplex:");
   //n: number of obs;
@@ -388,13 +371,6 @@ void quantreg::qr_tau_para_diff_fix_cpp(const arma::mat& x,
   residual.zeros();
   residual(sort(index_temp-nvar-1)) = res_temp;
   // print_leave();
-
-
-#ifdef DEBUG
-  ProfilerStop();
-  cout << "finish" << endl;
-#endif
-
 }
 
 
@@ -437,9 +413,6 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
                                     const uint maxit,
                                     const uint max_num_tau,
                                     const bool use_residual) const{
-#ifdef DEBUG
-  ProfilerStart("tau.prof");
-#endif
   // print_enter("simplex:");
   //n: number of obs;
   uint n = x.n_rows;
@@ -717,19 +690,6 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
 
       in(1+nvar, n+nvar, 1+nvar+n, nvar+2*n, IB, u, v);
 
-      /*
-       arma::vec u2(IB.n_elem);
-       arma::vec v2(IB.n_elem);
-       u2 = in_cpp(u_temp,IB);
-       v2 = in_cpp(v_temp,IB);
-
-       if (arma::any(u != u2))
-       cout << "in cpp failed" << endl;
-       if (arma::any(v != v2))
-       cout << "in cpp failed" << endl;
-       */
-
-
       arma::vec dh = get_dh(gammaxb,u,v,tau,tau_min,weights);
 
       now = u;
@@ -771,11 +731,6 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
     //est_beta.shed_col(tau_t);
     //dual_sol.shed_cols(tau_t-1,max_num_tau-1);
     est_beta.shed_col(0);
-#ifdef DEBUG
-    ProfilerStop();
-    cout << "finish" << endl;
-#endif
-
 }
 
 arma::vec quantreg::ranks_cpp(const arma::vec& matY,
@@ -827,13 +782,10 @@ arma::vec quantreg::ranks_cpp(const arma::vec& matY,
   // print_leave();
 
   return ranks;
-
-
 }
 
 arma::vec quantreg::ranks_cpp_marginal(const arma::vec& matY) const
 {
-  
   // quantreg qr(taurange);
   // print_enter("ranks:");
   uint n = matY.n_elem;

@@ -33,29 +33,15 @@ const double eps = 1e-14;
 // repetition function which returns a row vector with times num;
 // @param num a number;
 // @param times an integer-valued number of times to repeat num;
-arma::rowvec rep_cpp(double num,uint times){
+arma::rowvec rep_cpp(double num, uint times){
   arma::rowvec result(times);
-  for(uint i = 0;i<times;i++){
-    result(i) = num;
-  }
+  result.fill(num);
   return result;
 }
 
 
 // a function which returns a binary vector indicating if
 //there is a match or not in vector a for vector b;
-arma::vec in_cpp(const arma::vec &a, const arma::uvec &b){
-  arma::vec result(a.n_elem);
-  for(uint i = 0;i<a.n_elem;i++){
-    if(sum(b.elem(find(b==a(i))))!=0){
-      result(i) = 1;
-    }else{
-      result(i) = 0;
-    }
-  }
-  return result;
-}
-
 void in(uint us, uint ue, uint vs, uint ve, const arma::uvec &IB, arma::vec &u, arma::vec &v) {
   int n = v.n_elem;
   u.fill(arma::fill::zeros);
@@ -106,8 +92,8 @@ void save_spmat(arma::sp_mat X, string filename) {
 arma::vec get_dh(const arma::mat& gammaxb, const arma::vec& u, const arma::vec& v, const double tau, const double tau_min, const arma::rowvec& weights) {
     arma::mat xh = gammaxb.cols(find(u==0&&v==0));
     arma::mat xbarh = gammaxb.cols(find(u==1||v==1));
-    arma::rowvec dbarh = u.t()%rep_cpp(tau-tau_min,u.n_elem)+
-      v.t()%rep_cpp(tau-tau_min-1,v.n_elem);
+    arma::rowvec dbarh = u.t() % rep_cpp(tau-tau_min, u.n_elem) +
+      v.t() % rep_cpp(tau-tau_min-1, v.n_elem);
     dbarh = dbarh%weights;
 
     arma::vec dh(sum(u==1||v==1),arma::fill::zeros);
@@ -151,9 +137,6 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
                           const double tol = 1e-14,
                           const uint maxit = 100000, const uint max_num_tau = 1000,
                           const bool use_residual = true){
-#ifdef DEBUG
-  ProfilerStart("tau.prof");
-#endif
   //n: number of obs;
   uint n = x.n_rows;
 
@@ -402,18 +385,6 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
 
     in(1+nvar, n+nvar, 1+nvar+n, nvar+2*n, IB, u, v);
 
-    /*
-    arma::vec u2(IB.n_elem);
-    arma::vec v2(IB.n_elem);
-    u2 = in_cpp(u_temp,IB);
-    v2 = in_cpp(v_temp,IB);
-
-    if (arma::any(u != u2))
-      cout << "in cpp failed" << endl;
-    if (arma::any(v != v2))
-      cout << "in cpp failed" << endl;
-    */
-
     arma::vec dh = get_dh(gammaxb, u, v, tau, tau_min, weights);
 
     now = u;
@@ -441,11 +412,6 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   }
 
   est_beta.shed_col(0);
-
-#ifdef DEBUG
-  ProfilerStop();
-  cout << "finish" << endl;
-#endif
 
   return List::create(Named("estimate") = est_beta,
                       Named("tau") = tau_list,
