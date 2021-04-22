@@ -65,7 +65,6 @@ CQRforest <- function(matY,delta,matZ = NULL,matX, control = list()) {
   surv_time_mat = rfsrc_sim_censor_time$survival
   time_interest = as.matrix(rfsrc_sim_censor_time$time.interest)
 
-  print("DONE")
 
   out <- CenQRForest_C(.Z0,.X0,.Y0,.D0,tau,as.matrix(rep(1,.n)),surv_time_mat,
                                                     time_interest,
