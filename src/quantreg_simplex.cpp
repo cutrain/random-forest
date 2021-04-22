@@ -90,22 +90,30 @@ void save_spmat(arma::sp_mat X, string filename) {
 }
 
 arma::vec get_dh(const arma::mat& gammaxb, const arma::vec& u, const arma::vec& v, const double tau, const double tau_min, const arma::rowvec& weights) {
-    arma::mat xh = gammaxb.cols(find(u==0&&v==0));
-    arma::mat xbarh = gammaxb.cols(find(u==1||v==1));
-    arma::rowvec dbarh = u.t() % rep_cpp(tau-tau_min, u.n_elem) +
-      v.t() % rep_cpp(tau-tau_min-1, v.n_elem);
-    dbarh = dbarh%weights;
+  auto u0 = u==0;
+  auto u1 = u==1;
+  auto v0 = v==0;
+  auto v1 = v==1;
+  auto u1_or_v1 = u1 || v1;
+  arma::uvec f_uv0 = find(u0 && v0);
+  arma::uvec f_uv1 = find(u1_or_v1);
 
-    arma::vec dh(sum(u==1||v==1),arma::fill::zeros);
-    try{
-      dh = solve(xh,-xbarh*dbarh.cols(find(u==1||v==1)).t());
-    }
-    catch(const runtime_error& error){
-      dh = -arma::pinv(xh)*xbarh*dbarh.cols(find(u==1||v==1));
-    }
+  arma::mat xh = gammaxb.cols(f_uv0);
+  arma::mat xbarh = gammaxb.cols(f_uv1);
 
-    dh = dh/weights.elem(find(u==0&&v==0)).as_col()+1-tau;
-    return dh;
+  arma::rowvec dbarh = u.t() * (tau-tau_min) + v.t() * (tau-tau_min-1);
+  dbarh = dbarh%weights;
+
+  arma::vec dh(sum(u1_or_v1), arma::fill::zeros);
+  try{
+    dh = solve(xh,-xbarh*dbarh.cols(f_uv1).t());
+  }
+  catch(const runtime_error& error){
+    dh = -arma::pinv(xh)*xbarh*dbarh.cols(f_uv1);
+  }
+
+  dh = dh/weights.elem(f_uv0).as_col()+1-tau;
+  return dh;
 }
 
 //main function to implement quantile regression with simplex
