@@ -56,55 +56,21 @@ void in(uint us, uint ue, uint vs, uint ve, const arma::uvec &IB, arma::vec &u, 
   }
 }
 
-void save_mat(arma::mat X, string filename) {
-  ofstream f(filename);
-  if (f.is_open()) {
-    for (int i = 0; i < X.n_rows; ++i) {
-      for (int j = 0;j < X.n_cols; ++j) {
-        f << X(i,j) << " ";
-      }
-      f << endl;
-    }
-    f.close();
-  }
-}
-
-void save_vector(vector<double> x, string filename) {
-  ofstream f(filename);
-  if (f.is_open()) {
-    for (int i = 0;i < x.size(); ++i) {
-      f << x[i] << endl;
-    }
-    f.close();
-  }
-}
-
-void save_spmat(arma::sp_mat X, string filename) {
-  ofstream f(filename);
-  if (f.is_open()) {
-    for (auto it = X.begin(); it != X.end(); ++it) {
-      f << (*it) << " " << it.row() << " " << it.col() << endl;
-    }
-    f.close();
-  }
-}
-
 arma::vec get_dh(const arma::mat& gammaxb, const arma::vec& u, const arma::vec& v, const double tau, const double tau_min, const arma::rowvec& weights) {
   auto u0 = u==0;
   auto u1 = u==1;
   auto v0 = v==0;
   auto v1 = v==1;
-  auto u1_or_v1 = u1 || v1;
   arma::uvec f_uv0 = find(u0 && v0);
-  arma::uvec f_uv1 = find(u1_or_v1);
+  arma::uvec f_uv1 = find(u1 || v1);
 
   arma::mat xh = gammaxb.cols(f_uv0);
   arma::mat xbarh = gammaxb.cols(f_uv1);
 
   arma::rowvec dbarh = u.t() * (tau-tau_min) + v.t() * (tau-tau_min-1);
-  dbarh = dbarh%weights;
+  dbarh = dbarh % weights;
 
-  arma::vec dh(sum(u1_or_v1), arma::fill::zeros);
+  arma::vec dh;
   try{
     dh = solve(xh,-xbarh*dbarh.cols(f_uv1).t());
   }
@@ -112,8 +78,117 @@ arma::vec get_dh(const arma::mat& gammaxb, const arma::vec& u, const arma::vec& 
     dh = -arma::pinv(xh)*xbarh*dbarh.cols(f_uv1);
   }
 
-  dh = dh/weights.elem(f_uv0).as_col()+1-tau;
+  dh = dh / weights.elem(f_uv0).as_col() + 1 - tau;
   return dh;
+}
+
+double tau_inc(uint n, uint nvar, const arma::rowvec& c0, const arma::uvec& IB, const arma::mat& gammax, const arma::rowvec& weights, const arma::uvec& r1) {
+  arma::rowvec r1j_temp = c0.cols(IB)*gammax(arma::span(0,n-1),arma::span::all); // 1+nvar
+  arma::rowvec r1j = join_rows(r1j_temp-1,1-r1j_temp); // 2*(1+nvar)
+  arma::rowvec r0j = join_rows(gammax.row(n),weights.elem(r1-(1+nvar)).as_row()-gammax.row(n)); // 2*(1+nvar)
+  arma::rowvec theta = r0j/r1j; // 2*(1+nvar)
+
+  bool choose = false;
+  double theta_min = 0;
+  for (int i = 0;i < (1+nvar)*2; i++)
+    if (r1j[i] > eps && (!choose || theta_min > theta[i]))
+    {
+      choose = true;
+      theta_min = theta[i];
+    }
+  if (!choose) {
+    cout << "all r1j <= eps" << endl;
+  }
+  return theta_min;
+}
+
+void inner_loop(int iter, uint n, uint nvar, int tsep, int t_rr, double t,
+    arma::mat& gammax,
+    arma::colvec& b,
+    arma::uvec& free_var_basic,
+    arma::uvec& r1,
+    arma::uvec& r2,
+    arma::uvec& IB,
+    const arma::rowvec& weights) {
+  int k_index;
+  arma::vec yy; // gammax.n_rows
+
+  if (r2(t_rr)!=0) {
+    if(tsep==0) {
+      yy = gammax.col(t_rr);
+    }else{
+      yy = -gammax.col(t_rr);
+    }
+
+    arma::vec k = b/yy; // gammax.n_rows
+    arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
+    k(nokeep) = rep_cpp(INFINITY, nokeep.n_elem).t();
+    k_index = k.index_min();
+
+    if(tsep!=0) {
+      yy(n) = yy(n) + weights(r2[t_rr] - (1+nvar+n));
+    }
+  } else {
+    yy = gammax.col(t_rr);
+    if (yy(n) < -eps) {
+      arma::vec k = b/yy; // gammax.n_rows
+      arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
+      k(nokeep) = rep_cpp(INFINITY, nokeep.n_elem).t();
+      k_index = k.index_min();
+    } else {
+      arma::vec k = -b/yy; // gammax.n_rows
+      arma::uvec nokeep = arma::find(yy>=-eps || free_var_basic==1);
+      k(nokeep) = rep_cpp(INFINITY, nokeep.n_elem).t();
+      k_index = k.index_min();
+    }
+
+    free_var_basic(k_index) = 1;
+  }
+
+  arma::vec ee = yy/yy(k_index);
+  ee(k_index) = 1-1/yy(k_index);
+
+  if(IB(k_index)<=nvar+n){
+    gammax.col(t_rr) = rep_cpp(0, gammax.n_rows).t();
+    gammax(k_index,t_rr) = 1;
+    r1(t_rr) = IB(k_index);
+    r2(t_rr) = IB(k_index) + n;
+  }else{
+    gammax.col(t_rr) = rep_cpp(0, gammax.n_rows).t();
+    gammax(k_index,t_rr) = -1;
+    gammax(n,t_rr)  =  weights(IB[k_index] - (1+nvar+n));
+    r1(t_rr) = IB(k_index) - n;
+    r2(t_rr) = IB(k_index);
+  }
+
+  gammax = gammax - ee * gammax.row(k_index);
+  b = b - ee * arma::as_scalar(b[k_index]);
+  IB(k_index) = t;
+}
+
+void update_dual_sol_(arma::sp_mat& dual_sol, arma::vec&& x, int p) {
+  // dual_sol.col(p) = x;
+  for (int i = 0;i < x.n_elem; ++i) {
+    if (fabs(x(i)) > eps)
+      dual_sol(i,p) = x(i);
+  }
+}
+
+void update_dual_sol(int tau_t, double tau, double tau_min, bool use_residual,
+    arma::vec& pre, arma::vec& now,
+    arma::vec& u, arma::vec& v,
+    arma::vec& dh, arma::sp_mat& dual_sol) {
+  now = u;
+  if(use_residual==false){
+    dh.elem(find(dh==tau-tau_min)).ones();
+    dh.elem(find(dh==tau-tau_min-1)).zeros();
+  }
+  now(find(u==0 && v==0)) = dh;
+  if(tau_t>0){
+    update_dual_sol_(dual_sol, now-pre, tau_t-1);
+  }
+
+  pre = now;
 }
 
 //main function to implement quantile regression with simplex
@@ -152,7 +227,6 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   //nvar: number of covariates;
   uint nvar = x.n_cols;
   double tau = tau_min+taurange(0);
-  //cout << tau << endl;
   //cc: last row in the linear programming tableau of QR;
   arma::rowvec cc(nvar+1+2*n,arma::fill::zeros);
   for(uint j = nvar+1;j<nvar+n+1;j++){
@@ -227,7 +301,6 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   bool last_flag = false;
 
   // variables used in the while loop;
-  uint j = 0;
   int tau_t = 0;
   arma::vec estimate(nvar+1,arma::fill::zeros);
   arma::vec u(n,arma::fill::zeros);
@@ -235,30 +308,18 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   arma::vec pre(n,arma::fill::zeros);
   arma::vec now(n,arma::fill::zeros);
 
-  while(tau_t<max_num_tau){
+  for (tau_t = 0; tau_t<max_num_tau; ++tau_t){
     if(tau_t>0){
-      arma::rowvec r1j_temp = c0.cols(IB)*gammax(arma::span(0,n-1),arma::span::all); // 1+nvar
-      arma::rowvec r1j = join_rows(r1j_temp-1,1-r1j_temp); // 2*(1+nvar)
-      arma::rowvec r0j = join_rows(gammax.row(n),weights.elem(r1-(1+nvar)).as_row()-gammax.row(n)); // 2*(1+nvar)
-      arma::rowvec theta = r0j/r1j; // 2*(1+nvar)
-      bool choose = false;
-      double theta_min = 0;
-      for (int i = 0;i < (1+nvar)*2; i++)
-        if (r1j[i] > 0 && (!choose || theta_min > theta[i]))
-        {
-          choose = true;
-          theta_min = theta[i];
-        }
-
+      double theta_min = tau_inc(n, nvar, c0, IB, gammax, weights, r1);
       tau = tau + theta_min + tau_min;
 
-      if(tau>taurange[1]){
-        if(last_flag)
+      if (tau > taurange[1]) {
+        if (last_flag)
           break;
-        if(tau-theta_min<=taurange[1]){
-          tau = taurange[1]-tau_min;
+        if (tau-theta_min <= taurange[1]) {
+          tau = taurange[1] - tau_min;
           last_flag = true;
-        }else
+        } else
           break;
       }
 
@@ -268,113 +329,40 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
         cc.cols(IB)*gammax(arma::span(0,n-1),arma::span::all);
     }
 
-    j = 0;
-    while (j < maxit) {
+    for (int iter = 0;iter < maxit; ++iter) {
+      rr.row(0) = gammax.row(n);
+      for(uint i = 0;i<r2.n_elem;i++) {
+        if(r2(i)==0){
+          rr(1,i) = 0;
+          rr(0,i) = -abs(rr(0,i));
+        }else{
+          rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
+        }
+      }
+
       int tsep;
       int t_rr;
       double t;
-      if(tau_t==0 && j<nvar+1) {
-        rr.row(0) = gammax.row(n);
-        for(uint i = 0;i<r2.n_elem;i++) {
-          if(r2(i)==0){
-            rr(1,i) = 0;
-            rr(0,i) = -abs(rr(0,i));
-          }else{
-            rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
-          }
-        }
-
-        t_rr = j;
+      if(tau_t==0 && iter<nvar+1) {
+        t_rr = iter;
         tsep = 0;
         t = arma::as_scalar(r1(t_rr));
-      }else{
-        rr.row(0) = gammax.row(n);
-        for(uint i = 0;i<r2.n_elem;i++) {
-          if(r2(i)==0){
-            rr(1,i) = 0;
-            rr(0,i) = -abs(rr(0,i));
-          }else{
-            rr(1,i) = weights(r2(i)-(1+nvar+n))-rr(0,i);
-          }
-        }
-
-        if(rr.min()>-tol)
+      } else {
+        if(rr.min() > -tol)
           break;
         int index = rr.index_min();
         t_rr = index / 2;
         tsep = index % 2;
-        // t_rr = floor(tsep/2);
-        // tsep = tsep-floor(tsep/2)*2;
 
         if(tsep==0) {
           t = r1(t_rr);
-        }else{
+        } else {
           t = r2(t_rr);
         }
       }
-
-      int k_index;
-      arma::vec yy; // (gammax.n_rows, )
-      if (r2(t_rr)!=0) {
-        if(tsep==0) {
-          yy = gammax.col(t_rr);
-        }else{
-          yy = -gammax.col(t_rr);
-        }
-
-        arma::vec k = b/yy; // gammax.n_rows
-        arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
-        k(nokeep) = rep_cpp(INFINITY, nokeep.n_elem).t();
-        k_index = k.index_min();
-
-        if(tsep!=0) {
-          yy(n) = yy(n) + weights(r2[t_rr] - (1+nvar+n));
-        }
-      } else {
-        yy = gammax.col(t_rr);
-        if (yy(n) < 0) {
-          arma::vec k = b/yy; // gammax.n_rows
-          arma::uvec nokeep = arma::find(yy<=eps || free_var_basic==1);
-          k(nokeep) = rep_cpp(INFINITY, nokeep.n_elem).t();
-          k_index = k.index_min();
-        } else {
-          arma::vec k = -b/yy; // gammax.n_rows
-          arma::uvec nokeep = arma::find(yy>=-eps || free_var_basic==1);
-          k(nokeep) = rep_cpp(INFINITY, nokeep.n_elem).t();
-          k_index = k.index_min();
-        }
-
-        free_var_basic(k_index) = 1;
-      }
-
-      arma::vec ee = yy/yy(k_index);
-      ee(k_index) = 1-1/yy(k_index);
-
-      // cout <<"IB(k_index) is "<<IB(k_index)<<endl;
-      // cout <<"k_index is "<<k_index<<endl;
-      if(IB(k_index)<=nvar+n){
-        gammax.col(t_rr) = rep_cpp(0, gammax.n_rows).t();
-        gammax(k_index,t_rr) = 1;
-        r1(t_rr) = IB(k_index);
-        r2(t_rr) = IB(k_index) + n;
-      }else{
-        gammax.col(t_rr) = rep_cpp(0, gammax.n_rows).t();
-        gammax(k_index,t_rr) = -1;
-        gammax(n,t_rr)  =  weights(IB[k_index] - (1+nvar+n));
-        r1(t_rr) = IB(k_index) - n;
-        r2(t_rr) = IB(k_index);
-      }
-
-      gammax = gammax - ee * gammax.row(k_index);
-      b = b - ee * arma::as_scalar(b[k_index]);
-      IB(k_index) = t;
-      //cout << "t is " << t << endl;
-
-      j++;
-    }
-
-    if(j==maxit){
-      //cout << "WARNING:May not converge (tau = "<< tau <<")"<< endl;
+      inner_loop(iter, n, nvar, tsep, t_rr, t,
+          gammax, b, free_var_basic,
+          r1, r2, IB, weights);
     }
 
     arma::uvec tmp = find(IB<nvar+1);
@@ -395,28 +383,20 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
 
     arma::vec dh = get_dh(gammaxb, u, v, tau, tau_min, weights);
 
-    now = u;
-    if(use_residual==false){
-      dh.elem(find(dh==tau-tau_min)).ones();
-      dh.elem(find(dh==tau-tau_min-1)).zeros();
-    }
-    now(find(u==0&&v==0)) = dh;
-    if(tau_t>0){
-      dual_sol.col(tau_t-1) = now - pre;
-    }
-
-    pre = now;
-
-    tau_t++;
+    update_dual_sol(tau_t, tau, tau_min, use_residual,
+        pre, now,
+        u, v,
+        dh, dual_sol);
   }
-  if(last_flag==true && j==0){
+
+  if (last_flag) {
     est_beta.shed_col(tau_t);
-    tau_list.erase(tau_list.begin()+tau_t-2);
-    dual_sol.shed_cols(tau_t-1,max_num_tau-1);
-    dual_sol.shed_col(tau_t-3);
-  }else{
+    tau_list.erase(tau_list.begin() + tau_t - 2);
+    dual_sol.shed_cols(tau_t - 1, max_num_tau - 1);
+    dual_sol.shed_col(tau_t - 3);
+  } else {
     est_beta.shed_col(tau_t);
-    dual_sol.shed_cols(tau_t-1,max_num_tau-1);
+    dual_sol.shed_cols(tau_t - 1, max_num_tau - 1);
   }
 
   est_beta.shed_col(0);
@@ -424,7 +404,4 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   return List::create(Named("estimate") = est_beta,
                       Named("tau") = tau_list,
                       Named("diff_dual_sol") = dual_sol);
-  // Named("gammax") = gammax,
-  // Named("cc") = cc,
-  // Named("IB") = IB);
 }
