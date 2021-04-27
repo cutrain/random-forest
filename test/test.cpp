@@ -40,6 +40,32 @@ extern SEXP CenQRForest_C(const arma::mat& matZ0,
                  int maxNode,
                  int mtry);
 
+extern SEXP CenQRForest_WW_C(const arma::mat& matZ0,
+                      const arma::mat& matX0,
+                      const arma::vec& matY0,
+                      const arma::mat& matXnew,
+                      const arma::uvec& delta,
+                      const double& tau,
+                      const arma::vec& weight_rf,
+                      const arma::rowvec& weight_censor,
+                      const arma::vec& quantile_level,
+                      int numTree,
+                      int minSplit1,
+                      int maxNode,
+                      int mtry);
+
+extern SEXP QPRForest_C(const arma::mat& matZ0,
+                 const arma::mat& matX0,
+                 const arma::vec& matY0,
+                 const arma::mat& matXnew,
+                 const arma::vec& taurange,
+                 const arma::vec& quantile_level,
+                 uint max_num_tau,
+                 int numTree,
+                 int minSplit1,
+                 int maxNode,
+                 int mtry);
+
 void split(const std::string& s,
     std::vector<std::string>& sv,
     const char delim = ' ') {
@@ -51,62 +77,91 @@ void split(const std::string& s,
   }
 }
 
+void read_mat(const std::string& filename, int col, arma::mat& X) {
+  string line;
+  vector<string> input;
+  ifstream f(filename);
+
+  if (!f.is_open())
+  {
+    cout << "not open " << filename << endl;
+    return;
+  }
+  int cnt = 0;
+  while (getline(f, line))
+  {
+    if (cnt == 0)
+    {
+      cnt += 1;
+      continue;
+    }
+    split(line, input, ',');
+    for (int i = 1;i <= col; ++i)
+      X(cnt-1, i-1) = stod(input[i]);
+    cnt += 1;
+  }
+  f.close();
+  cout << "read " << filename << ": " << cnt << endl;
+}
+
+template<class T>
+void read_vec(const std::string& filename, T& y) {
+  string line;
+  vector<string> input;
+  ifstream f(filename);
+
+  if (!f.is_open())
+  {
+    cout << "not open " << filename << endl;
+    return;
+  }
+  int cnt = 0;
+  while (getline(f, line))
+  {
+    if (cnt == 0)
+    {
+      cnt += 1;
+      continue;
+    }
+    split(line, input, ',');
+    y(cnt-1) = stod(input[1]);
+    cnt += 1;
+  }
+  f.close();
+  cout << "read " << filename << ": " << cnt << endl;
+}
+
+template<>
+void read_vec(const std::string& filename, arma::uvec& y) {
+  string line;
+  vector<string> input;
+  ifstream f(filename);
+
+  if (!f.is_open())
+  {
+    cout << "not open " << filename << endl;
+    return;
+  }
+  int cnt = 0;
+  while (getline(f, line))
+  {
+    if (cnt == 0)
+    {
+      cnt += 1;
+      continue;
+    }
+    split(line, input, ',');
+    y(cnt-1) = stoi(input[1]);
+    cnt += 1;
+  }
+  f.close();
+  cout << "read " << filename << ": " << cnt << endl;
+}
+
 void test_qr_simplex()
 {
   int n = 1000;
-  int d = 2;
-  vector<double> X_c[d];
-  vector<double> y_c;
-  vector<double> w_c;
-  string line;
-
-  // read X
-  ifstream f("data/simplex/x.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      cnt += 1;
-      if (cnt == 1)
-        continue;
-      int row;
-      double a,b;
-      char *p=(char*)line.data();
-      sscanf(p, "\"%d\",%lf,%lf", &row, &a, &b);
-      X_c[0].push_back(a);
-      X_c[1].push_back(b);
-    }
-    f.close();
-    cout << "read X:" << cnt << endl;
-  }
-  else
-    cout << "not open X" << endl;
-
-  // read Y
-  f = ifstream("data/simplex/y.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      cnt += 1;
-      if (cnt == 1)
-        continue;
-      int row;
-      double a;
-      char *p=(char*)line.data();
-      sscanf(p, "\"%d\",%lf", &row, &a);
-      y_c.push_back(a);
-    }
-    f.close();
-    cout << "read Y:" << cnt << endl;
-  }
-  else
-    cout << "not open Y" << endl;
-
-  // making input
-  arma::mat X(n, d);
+  arma::mat X(n, 2);
   arma::colvec y(n);
   arma::rowvec weights(n);
   arma::colvec taurage(2);
@@ -115,13 +170,12 @@ void test_qr_simplex()
   uint maxit = 100000L;
   uint max_num_tau = 2000L;
   bool use_residual = true;
+
+  read_mat("data/simplex/x.txt", 2, X);
+  read_vec("data/simplex/y.txt", y);
+
   for (int i = 0;i < n; ++i)
-  {
-    X(i, 0) = X_c[0][i];
-    X(i, 1) = X_c[1][i];
-    y(i) = y_c[i];
     weights(i) = 1.;
-  }
   taurage(0) = 0;
   taurage(1) = 1;
 
@@ -148,177 +202,14 @@ void test_cqr()
   int maxNode = 500;
   int mtry = 3;
 
-  string line;
-  vector<string> input;
-
-  // read z
-  ifstream f("data/cqr/cqr_z.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      if (cnt == 0)
-        continue;
-      int row, a[2];
-      char *p=(char*)line.data();
-      sscanf(p, "\"%d\",%d,%d", &row, a, a+1);
-      matZ0(cnt, 0) = a[0];
-      matZ0(cnt, 1) = a[1];
-      cnt += 1;
-    }
-    f.close();
-    cout << "read z:" << cnt << endl;
-  }
-  else
-    cout << "not open z" << endl;
-
-  // read x
-  f = ifstream("data/cqr/cqr_x.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      if (cnt == 0)
-        continue;
-      int row, a[5];
-      char *p=(char*)line.data();
-      sscanf(p, "\"%d\",%d,%d,%d,%d,%d", &row, a, a+1,a+2,a+3,a+4);
-      for (int i = 0;i < 5; ++i)
-        matX0(cnt, i) = a[i];
-      cnt += 1;
-    }
-    f.close();
-    cout << "read x:" << cnt << endl;
-  }
-  else
-    cout << "not open x" << endl;
-
-  // read y
-  f = ifstream("data/cqr/cqr_y.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      if (cnt == 0)
-        continue;
-      int row, a;
-      char *p=(char*)line.data();
-      sscanf(p, "\"%d\",%d", &row, &a);
-      matY0[cnt] = a;
-      cnt += 1;
-    }
-    f.close();
-    cout << "read y:" << cnt << endl;
-  }
-  else
-    cout << "not open y" << endl;
-
-  // read delta
-  f = ifstream("data/cqr/cqr_delta.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      if (cnt == 0)
-        continue;
-      int row, a;
-      char *p=(char*)line.data();
-      sscanf(p, "\"%d\",%d", &row, &a);
-      delta0[cnt] = a;
-      cnt += 1;
-    }
-    f.close();
-    cout << "read delta:" << cnt << endl;
-  }
-  else
-    cout << "not open delta" << endl;
-
-  // read weight
-  f = ifstream("data/cqr/cqr_weight.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      if (cnt == 0)
-        continue;
-      int row, a;
-      char *p=(char*)line.data();
-      sscanf(p, "\"%d\",%d", &row, &a);
-      weight_rf0[cnt] = a;
-      cnt += 1;
-    }
-    f.close();
-    cout << "read weight:" << cnt << endl;
-  }
-  else
-    cout << "not open weight" << endl;
-
-  // read rfsrc
-  f = ifstream("data/cqr/cqr_rfsrc.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      if (cnt == 0)
-        continue;
-      split(line, input, ',');
-      for (int i = 1;i <= 83; ++i)
-        rfsrc_time_surv0(cnt, i-1) = stod(input[i]);
-      cnt += 1;
-    }
-    f.close();
-    cout << "read rfsrc:" << cnt << endl;
-  }
-  else
-    cout << "not open rfsrc" << endl;
-
-  // read time_interest
-  f = ifstream("data/cqr/cqr_time.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      if (cnt == 0)
-        continue;
-      int row, a;
-      char *p=(char*)line.data();
-      sscanf(p, "\"%d\",%d", &row, &a);
-      time_interest[cnt] = a;
-      cnt += 1;
-    }
-    f.close();
-    cout << "read time:" << cnt << endl;
-  }
-  else
-    cout << "not open time" << endl;
-
-  // read quant
-  f = ifstream("data/cqr/cqr_quant.txt");
-  if (f.is_open())
-  {
-    int cnt = 0;
-    while (getline(f, line))
-    {
-      if (cnt == 0)
-        continue;
-      int row, a;
-      char *p=(char*)line.data();
-      sscanf(p, "\"%d\",%d", &row, &a);
-      quantile_level[cnt] = a;
-      cnt += 1;
-    }
-    f.close();
-    cout << "read quantile level:" << cnt << endl;
-  }
-  else
-    cout << "not open quantile level" << endl;
+  read_mat("data/cqr/cqr_z.txt", 2, matZ0);
+  read_mat("data/cqr/cqr_x.txt", 5, matX0);
+  read_vec("data/cqr/cqr_y.txt", matY0);
+  read_vec("data/cqr/cqr_delta.txt", delta0);
+  read_vec("data/cqr/cqr_weight.txt", weight_rf0);
+  read_mat("data/cqr/cqr_rfsrc.txt", 83, rfsrc_time_surv0);
+  read_vec("data/cqr/cqr_time.txt", time_interest);
+  read_vec("data/cqr/cqr_quant.txt", quantile_level);
 
   CenQRForest_C(
       matZ0, matX0, matY0, delta0,
@@ -327,14 +218,75 @@ void test_cqr()
       numTree, minSplit1, maxNode, mtry);
 }
 
+void test_cqr_ww() {
+  int n = 1161;
+  arma::mat matZ0(n, 1);
+  arma::mat matX0(n, 2);
+  arma::vec matY0(n);
+  arma::mat matXnew(196, 2);
+  arma::uvec delta(1000);
+  double tau = 0.5;
+  arma::vec weight_rf(n);
+  arma::rowvec weight_censor(n);
+  arma::vec quantile_level(48);
+  int numTree = 500;
+  int minSplit1 = 8;
+  int maxNode = 500;
+  int mtry = 1;
+
+  read_mat("data/cqr_ww/z.txt", 1, matZ0);
+  read_mat("data/cqr_ww/x.txt", 2, matX0);
+  read_mat("data/cqr_ww/x_new.txt", 2, matXnew);
+  read_vec("data/cqr_ww/y.txt", matY0);
+  read_vec("data/cqr_ww/delta.txt", delta);
+  read_vec("data/cqr_ww/weight_rf.txt", weight_rf);
+  read_vec("data/cqr_ww/weight_censor.txt", weight_censor);
+  read_vec("data/cqr_ww/quant_level.txt", quantile_level);
+
+  CenQRForest_WW_C(matZ0, matX0, matY0, matXnew, delta,
+                      tau, weight_rf, weight_censor, quantile_level,
+                      numTree, minSplit1, maxNode, mtry);
+}
+
+void test_qpr() {
+  int n = 1000;
+
+  arma::mat matZ0(n, 1);
+  arma::mat matX0(n, 5);
+  arma::vec matY0(n, 1);
+  arma::mat matXnew(196, 5);
+  arma::vec taurange(2);
+  arma::vec quantile_level(48);
+  uint max_num_tau = 2000;
+  int numTree = 500;
+  int minSplit1 = 8;
+  int maxNode = 500;
+  int mtry = 4;
+
+  read_mat("data/qpr/z.txt", 1, matZ0);
+  read_mat("data/qpr/x.txt", 5, matX0);
+  read_mat("data/qpr/x_test.txt", 5, matXnew);
+  read_vec("data/qpr/y.txt", matY0);
+  read_vec("data/qpr/taurange.txt", taurange);
+  read_vec("data/qpr/quantile_level.txt", quantile_level);
+
+  QPRForest_C(matZ0, matX0, matY0, matXnew,
+      taurange, quantile_level, max_num_tau,
+      numTree, minSplit1, maxNode, mtry);
+}
+
 int main(int argc, char *argv[]) {
   // init
   RInside R(argc, argv);
   R.parseEvalQ("library('Matrix');");
+  // ProfilerStart("rf.prof");
 
-  test_qr_simplex();
+  // test_qr_simplex();
   // test_cqr();
+  // test_cqr_ww();
+  test_qpr();
 
+  // ProfilerStop();
   return 0;
 }
 #endif
