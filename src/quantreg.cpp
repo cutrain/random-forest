@@ -9,19 +9,15 @@ double quantreg::G_func(uint& order, arma::vec& matY,arma::vec& delta) const{
   arma::uvec indice = arma::sort_index(matY);
   double prod = 1;
   if(order>1){
-
     order = order-1;
-
   }
   for(uint j = 0;j<order;j++){
-
     uint indj = indice(j);
     if(delta(indj)==0){
-
-      prod = prod*((n-1-j)/(n-j));
-
+      // BUG?
+      // prod = prod*((n-1-j)/(n-j));
+      prod *= static_cast<double>(n-1-j) / (n-j);
     }
-
   }
 
   return prod;
@@ -108,9 +104,8 @@ arma::vec quantreg::get_dh(const arma::mat& gammaxb,
   auto u1 = u==1;
   auto v0 = v==0;
   auto v1 = v==1;
-  auto u1_or_v1 = u1 || v1;
   arma::uvec f_uv0 = find(u0 && v0);
-  arma::uvec f_uv1 = find(u1_or_v1);
+  arma::uvec f_uv1 = find(u1 || v1);
 
   arma::mat xh = gammaxb.cols(f_uv0);
   arma::mat xbarh = gammaxb.cols(f_uv1);
@@ -118,7 +113,7 @@ arma::vec quantreg::get_dh(const arma::mat& gammaxb,
   arma::rowvec dbarh = u.t() * (tau-tau_min) + v.t() * (tau-tau_min-1);
   dbarh = dbarh%weights;
 
-  arma::vec dh(sum(u1_or_v1), arma::fill::zeros);
+  arma::vec dh;
   try{
     dh = solve(xh,-xbarh*dbarh.cols(f_uv1).t());
   }
@@ -130,6 +125,12 @@ arma::vec quantreg::get_dh(const arma::mat& gammaxb,
   return dh;
 }
 
+extern void update_dual_sol_(arma::sp_mat& dual_sol, arma::vec&& x, int p);
+
+extern void update_dual_sol(int tau_t, double tau, double tau_min, bool use_residual,
+    arma::vec& pre, arma::vec& now,
+    arma::vec& u, arma::vec& v,
+    arma::vec& dh, arma::sp_mat& dual_sol);
 
 //main function to implement quantile regression with simplex
 //method at a fixed quantile level;
@@ -676,17 +677,10 @@ void quantreg::qr_tau_para_diff_cpp(const arma::mat& x,
 
       arma::vec dh = get_dh(gammaxb,u,v,tau,tau_min,weights);
 
-      now = u;
-      if(use_residual==false){
-        dh.elem(find(dh==tau-tau_min)).ones();
-        dh.elem(find(dh==tau-tau_min-1)).zeros();
-      }
-      now(find(u==0&&v==0)) = dh;
-      if(tau_t>0){
-        dual_sol.col(tau_t-1) = now - pre;
-      }
-
-      pre = now;
+      update_dual_sol(tau_t, tau, tau_min, use_residual,
+          pre, now,
+          u, v,
+          dh, dual_sol);
 
       tau_t++;
     }
@@ -751,8 +745,7 @@ arma::vec quantreg::ranks_cpp(const arma::vec& matY,
   arma::vec dphi = arma::zeros<arma::vec>(J-1);
   dphi = phi(arma::span(1,J-1))-phi(arma::span(0,J-2));
 
-  ranks = dual_sol*(dphi/dt);
-  return ranks;
+  return dual_sol*(dphi/dt);
 }
 
 arma::vec quantreg::ranks_cpp_marginal(const arma::vec& matY) const
