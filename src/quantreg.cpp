@@ -65,67 +65,24 @@ double quantreg::KM_fun(const double& time, const arma::vec& matY, const arma::v
 // repetition function which returns a row vector with times num;
 // @param num a number;
 // @param times an integer-valued number of times to repeat num;
-arma::rowvec quantreg::rep_cpp(double num,uint times) const{
-  arma::rowvec result(times);
-  result.fill(num);
-  return result;
-}
-
+extern arma::rowvec rep_cpp(double num,uint times);
 
 // a function which returns a binary vector indicating if
 //there is a match or not in vector a for vector b;
-void quantreg::in(uint us,
-                  uint ue,
-                  uint vs,
-                  uint ve,
-                  const arma::uvec &IB,
-                  arma::vec &u,
-                  arma::vec &v) const {
-  int n = v.n_elem;
-  u.fill(arma::fill::zeros);
-  v.fill(arma::fill::zeros);
+extern void in(uint us,
+    uint ue,
+    uint vs,
+    uint ve,
+    const arma::uvec &IB,
+    arma::vec &u,
+    arma::vec &v);
 
-  for (int i = 0;i < n; i++) {
-    int x = IB(i);
-    if (x >= us && x <= ue)
-      u(x-us) = 1;
-    else if (x >= vs && x <= ve)
-      v(x-vs) = 1;
-  }
-}
-
-arma::vec quantreg::get_dh(const arma::mat& gammaxb,
-                           const arma::vec& u,
-                           const arma::vec& v,
-                           const double tau,
-                           const double tau_min,
-                           const arma::rowvec& weights) const {
-  auto u0 = u==0;
-  auto u1 = u==1;
-  auto v0 = v==0;
-  auto v1 = v==1;
-  arma::uvec f_uv0 = find(u0 && v0);
-  arma::uvec f_uv1 = find(u1 || v1);
-
-  arma::mat xh = gammaxb.cols(f_uv0);
-  arma::mat xbarh = gammaxb.cols(f_uv1);
-
-  arma::rowvec dbarh = u.t() * (tau-tau_min) + v.t() * (tau-tau_min-1);
-  dbarh = dbarh%weights;
-
-  arma::vec dh;
-  try{
-    dh = solve(xh,-xbarh*dbarh.cols(f_uv1).t());
-  }
-  catch(const runtime_error& error){
-    dh = -arma::pinv(xh)*xbarh*dbarh.cols(f_uv1);
-  }
-
-  dh = dh/weights.elem(f_uv0).as_col()+1-tau;
-  return dh;
-}
-
-extern void update_dual_sol_(arma::sp_mat& dual_sol, arma::vec&& x, int p);
+extern arma::vec get_dh(const arma::mat& gammaxb,
+    const arma::vec& u,
+    const arma::vec& v,
+    const double tau,
+    const double tau_min,
+    const arma::rowvec& weights);
 
 extern void update_dual_sol(int tau_t, double tau, double tau_min, bool use_residual,
     arma::vec& pre, arma::vec& now,

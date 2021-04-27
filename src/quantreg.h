@@ -43,23 +43,6 @@ public:
 
   double KM_fun(const double& time, const arma::vec& matY, const arma::vec& delta) const;
 
-  arma::rowvec rep_cpp(double num,uint times) const;
-
-  void in(uint us,
-          uint ue,
-          uint vs,
-          uint ve,
-          const arma::uvec &IB,
-          arma::vec &u,
-          arma::vec &v) const;
-
-  arma::vec get_dh(const arma::mat& gammaxb,
-                   const arma::vec& u,
-                   const arma::vec& v,
-                   const double tau,
-                   const double tau_min,
-                   const arma::rowvec& weights) const;
-
   void qr_tau_para_diff_fix_cpp(const arma::mat& x,
                                const arma::colvec& y,
                                const arma::rowvec& weights,
