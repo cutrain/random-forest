@@ -279,6 +279,7 @@ int main(int argc, char *argv[]) {
   // init
   RInside R(argc, argv);
   R.parseEvalQ("library('Matrix');");
+  R.parseEvalQ("library('MASS');");
   // ProfilerStart("rf.prof");
 
   // test_qr_simplex();

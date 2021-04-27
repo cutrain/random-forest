@@ -65,7 +65,7 @@ public:
               const arma::vec& quantile_level,
               uint max_num_tau,
               const arma::umat& ids);
-  
+
   int trainRF(std::vector<std::shared_ptr<Tree> >& trees,
               const arma::mat& matX,
               const arma::mat& matY,
@@ -102,7 +102,7 @@ public:
                                    const arma::vec& taurange,
                                    const arma::vec& quantile_level,
                                    uint max_num_tau) const;
-  
+
   std::shared_ptr<Tree> train_tree(const arma::mat& matX,
                                    const arma::mat& matY,
                                    const arma::vec& taurange,
@@ -221,8 +221,7 @@ public:
                                  const arma::field<arma::uvec>& nodeSample,
                                  const arma::vec& quantile_level,
                                  uint max_num_tau) const;
-  
-  
+
   split_info find_split_rankscore_marginal(arma::uword nd,
                                            const arma::mat& matX,
                                            const arma::mat& matY,
@@ -230,7 +229,7 @@ public:
                                            const arma::field<arma::uvec>& nodeSample,
                                            const arma::vec& quantile_level,
                                            uint max_num_tau) const;
-  
+
   uint split_rankscore_marginal(const arma::mat& matX,
                                 const arma::mat& matY,
                                 const arma::vec& taurange,
