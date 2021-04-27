@@ -244,18 +244,12 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   col_zero.fill(0.0);
   arma::colvec b = join_cols(y,col_zero);
   //flip the sign if y<0;
-
   for (int i = 0;i < y.n_elem; i++)
     if (y(i) < 0)
     {
       gammax_org.row(i) = -gammax_org.row(i);
       b(i) = -b(i);
     }
-  /*
-  gammax_org.rows(find(y<0)) = -gammax_org.rows(find(y<0));
-  b.rows(find(y<0)) = -b.rows(find(y<0));
-  */
-
 
   //IB: index of variables in the basic set;
   arma::uvec IB(n,arma::fill::zeros);
@@ -269,7 +263,6 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
   //transformation of the LP tableau to initialize optimization;
   arma::rowvec cc_trans = -cc.cols(IB);
   arma::mat gammax = join_cols(gammax_org,cc_trans*gammax_org);
-  //cout << gammax(gammax.n_rows-1,0) << endl;
 
   //once beta is pivoted to basic set, it cannot be pivoted out;
   arma::uvec free_var_basic(n+1,arma::fill::zeros);
@@ -302,13 +295,14 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
 
   // variables used in the while loop;
   int tau_t = 0;
+  bool notrun = true;
   arma::vec estimate(nvar+1,arma::fill::zeros);
   arma::vec u(n,arma::fill::zeros);
   arma::vec v(n,arma::fill::zeros);
   arma::vec pre(n,arma::fill::zeros);
   arma::vec now(n,arma::fill::zeros);
 
-  for (tau_t = 0; tau_t<max_num_tau; ++tau_t){
+  for (tau_t = 0; tau_t < max_num_tau; ++tau_t){
     if(tau_t>0){
       double theta_min = tau_inc(n, nvar, c0, IB, gammax, weights, r1);
       tau = tau + theta_min + tau_min;
@@ -329,6 +323,7 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
         cc.cols(IB)*gammax(arma::span(0,n-1),arma::span::all);
     }
 
+    notrun = true;
     for (int iter = 0;iter < maxit; ++iter) {
       rr.row(0) = gammax.row(n);
       for(uint i = 0;i<r2.n_elem;i++) {
@@ -363,6 +358,8 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
       inner_loop(iter, n, nvar, tsep, t_rr, t,
           gammax, b, free_var_basic,
           r1, r2, IB, weights);
+
+      notrun = false;
     }
 
     arma::uvec tmp = find(IB<nvar+1);
@@ -389,7 +386,7 @@ List qr_tau_para_diff_cpp(const arma::mat x, const arma::colvec y, const arma::r
         dh, dual_sol);
   }
 
-  if (last_flag) {
+  if (last_flag && notrun) {
     est_beta.shed_col(tau_t);
     tau_list.erase(tau_list.begin() + tau_t - 2);
     dual_sol.shed_cols(tau_t - 1, max_num_tau - 1);
